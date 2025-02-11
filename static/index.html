@@ -87,7 +87,7 @@
             let data = await response.json();
             if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
             this.searchComplete = false;
-            this.addError[url] = 'Successfully added torrent. You can search for more audiobooks!';
+            this.searchError = 'Successfully added torrent. You can search for more audiobooks!';
         } catch (error) {
             this.addError[url] = error.message;
         } finally {
