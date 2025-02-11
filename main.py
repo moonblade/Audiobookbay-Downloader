@@ -16,16 +16,16 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 logger = custom_logger(__name__)
 
 @app.get("/")
-async def root():
+def root():
     return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/status")
-async def status():
+def status():
     now = datetime.utcnow().isoformat() + "Z"
     return {"status": "ok", "timestamp": now}
 
 @app.get("/search")
-async def search(
+def search(
     query: str = Query(..., description="Search query"),
 ):
     """
@@ -42,7 +42,7 @@ class TorrentRequest(BaseModel):
     url: str
 
 @app.post("/add")
-async def add(
+def add(
     torrent: TorrentRequest,
 ):
     """

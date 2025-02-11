@@ -11,6 +11,7 @@
     query: '',
     results: [],
     loadingSearch: false,
+    searchComplete: false,
     searchError: '',
     funnyMessages: [
         'Searching... This better be worth it!',
@@ -22,7 +23,17 @@
         'Maybe go for a walk?',
         'Still thinking... Almost there!',
         'Finding the best results for you!',
-        'Hang tight! Searching magic happening!'
+        'Hang tight! Searching magic happening!',
+        'One moment... while I consult the ancients.',
+        'Beep boop... processing... please wait...',
+        'My hamsters are running on a wheel, almost there!',
+        'Just gathering some pixie dust, be right back!',
+        'Is it lunchtime yet? Oh, searching... right.',
+        'Please remain calm, the search is in progress.',
+        'Warning: Search may cause extreme awesomeness.',
+        'Calculating the optimal route to your results...',
+        'Almost there... just defragmenting my brain.',
+        'Searching... because the internet is a big place!'
     ],
     currentFunnyMessage: '',
     messageInterval: null,
@@ -30,6 +41,7 @@
     async search() {
         if (!this.query) return;
         this.loadingSearch = true;
+        this.searchComplete = false;
         this.searchError = '';
         this.results = [];
 
@@ -38,7 +50,7 @@
         this.messageInterval = setInterval(() => {
             this.currentFunnyMessage = this.funnyMessages[index % this.funnyMessages.length];
             index++;
-        }, 1000);
+        }, 5000);
 
         try {
             let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
@@ -48,6 +60,7 @@
         } catch (error) {
             this.searchError = error.message;
         } finally {
+            this.searchComplete = true;
             this.loadingSearch = false;
             clearInterval(this.messageInterval);
             this.currentFunnyMessage = '';
@@ -60,6 +73,8 @@
     async add(url) {
         this.loadingAdd[url] = true;
         this.addError[url] = '';
+        this.searchError = '';
+
         
         try {
             let response = await fetch('/add', {
@@ -69,18 +84,23 @@
             });
             let data = await response.json();
             if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
-            this.results = [];
+            this.searchComplete = false;
+            this.searchError = 'Successfully added torrent. You can search for more audiobooks!';
         } catch (error) {
             this.addError[url] = error.message;
         } finally {
             this.loadingAdd[url] = false;
         }
+    },
+
+    async keydown(event) {
+      this.searchComplete = false;
     }
 }">
     <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
         <h1 class="text-2xl font-bold mb-4">Audiobook Search</h1>
         <div class="flex gap-2">
-            <input type="text" x-model="query" @keydown.enter="search" class="border p-2 flex-grow rounded" placeholder="Search for audiobooks...">
+            <input type="text" x-model="query" @input="keydown" @keydown.enter="search" class="border p-2 flex-grow rounded" placeholder="Search for audiobooks...">
             <button @click="search" :disabled="loadingSearch" class="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
                 <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 Search
@@ -98,7 +118,7 @@
                     <h2 class="font-bold" x-text="result.Title"></h2>
                     <p class="text-sm text-gray-600">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                 </div>
-                <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]" class="bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
+                <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]==true" class="bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
                     <span x-show="loadingAdd[result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                     Add
                 </button>
@@ -106,6 +126,7 @@
             <p x-show="addError[result.Link]" class="text-red-500 text-sm mt-1" x-text="addError[result.Link]"></p>
         </template>
     </div>
+
+    <p class="max-w-xl mx-auto mt-6 text-center text-gray-600" x-show="searchComplete && results.length === 0 && query">No results found. Try a different search term!</p>
 </body>
 </html>
-
