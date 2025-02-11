@@ -1,0 +1,46 @@
+name: Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    permissions:
+      contents: read
+      packages: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # - name: Unlock secrets
+    #   uses: sliteteam/github-action-git-crypt-unlock@1.2.0
+    #   env:
+    #     GIT_CRYPT_KEY: ${{ secrets.GIT_CRYPT_KEY }}
+
+    # Log in to GitHub Container Registry
+    - name: Log in to GitHub Container Registry
+      uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    # Extract short commit SHA
+    - name: Set short commit SHA
+      id: vars
+      run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+    - name: Build and push
+      uses: docker/build-push-action@v4
+      with:
+        context: .
+        push: true
+        tags: ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:${{ env.SHORT_SHA }}
