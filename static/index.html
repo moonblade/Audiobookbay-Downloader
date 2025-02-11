@@ -4,10 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Audiobook Search</title>
+    <link rel="icon" href="/static/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
-<body class="bg-gray-100 p-6" x-data="{
+<body class="bg-gray-800 text-white p-6" x-data="{
     query: '',
     results: [],
     loadingSearch: false,
@@ -44,11 +45,12 @@
         this.searchComplete = false;
         this.searchError = '';
         this.results = [];
+        const shuffledMessages = [...this.funnyMessages].sort(() => Math.random() - 0.5);
 
         // Start funny messages loop
         let index = 0;
         this.messageInterval = setInterval(() => {
-            this.currentFunnyMessage = this.funnyMessages[index % this.funnyMessages.length];
+            this.currentFunnyMessage = shuffledMessages[index % shuffledMessages.length];
             index++;
         }, 5000);
 
@@ -85,7 +87,7 @@
             let data = await response.json();
             if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
             this.searchComplete = false;
-            this.searchError = 'Successfully added torrent. You can search for more audiobooks!';
+            this.addError[url] = 'Successfully added torrent. You can search for more audiobooks!';
         } catch (error) {
             this.addError[url] = error.message;
         } finally {
@@ -97,28 +99,28 @@
       this.searchComplete = false;
     }
 }">
-    <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
+    <div class="max-w-xl mx-auto bg-gray-700 p-6 rounded shadow">
         <h1 class="text-2xl font-bold mb-4">Audiobook Search</h1>
         <div class="flex gap-2">
-            <input type="text" x-model="query" @input="keydown" @keydown.enter="search" class="border p-2 flex-grow rounded" placeholder="Search for audiobooks...">
-            <button @click="search" :disabled="loadingSearch" class="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+            <input type="text" x-model="query" @input="keydown" @keydown.enter="search" class="border p-2 flex-grow rounded bg-gray-600 text-white" placeholder="Search for audiobooks...">
+            <button @click="search" :disabled="loadingSearch" class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
                 <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 Search
             </button>
         </div>
         <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
-        <p x-show="loadingSearch" class="text-gray-600 mt-2 italic" x-text="currentFunnyMessage"></p>
+        <p x-show="loadingSearch" class="text-gray-400 mt-2 italic" x-text="currentFunnyMessage"></p>
     </div>
 
     <div class="max-w-xl mx-auto mt-6" x-show="results.length">
         <template x-for="result in results" :key="result.Guid">
-            <div class="bg-white p-4 rounded shadow mb-2 flex items-center gap-4">
+            <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center gap-4">
                 <img :src="result.Poster" class="w-16 h-16 object-cover rounded">
                 <div class="flex-grow">
                     <h2 class="font-bold" x-text="result.Title"></h2>
-                    <p class="text-sm text-gray-600">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
+                    <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                 </div>
-                <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]==true" class="bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
+                <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
                     <span x-show="loadingAdd[result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                     Add
                 </button>
@@ -127,6 +129,6 @@
         </template>
     </div>
 
-    <p class="max-w-xl mx-auto mt-6 text-center text-gray-600" x-show="searchComplete && results.length === 0 && query">No results found. Try a different search term!</p>
+    <p class="max-w-xl mx-auto mt-6 text-center text-gray-400" x-show="searchComplete && results.length === 0 && query">No results found. Try a different search term!</p>
 </body>
 </html>
