@@ -1,15 +1,23 @@
-import logging
 from datetime import datetime
 
 from pydantic import BaseModel
 from audiobookbay import search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from utils import custom_logger
 import uvicorn
+import os
 
 app = FastAPI()
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 logger = custom_logger(__name__)
+
+@app.get("/")
+async def root():
+    return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/status")
 async def status():

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audiobook Search</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-100 p-6" x-data="{
+    query: '',
+    results: [],
+    loadingSearch: false,
+    searchError: '',
+    async search() {
+        if (!this.query) return;
+        this.loadingSearch = true;
+        this.searchError = '';
+        this.results = [];
+        try {
+            let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
+            if (!response.ok) throw new Error('Failed to fetch results');
+            let data = await response.json();
+            this.results = data.results || [];
+        } catch (error) {
+            this.searchError = error.message;
+        } finally {
+            this.loadingSearch = false;
+        }
+    },
+    loadingAdd: {},
+    addError: {},
+    async add(url) {
+        this.loadingAdd[url] = true;
+        this.addError[url] = '';
+        try {
+            let response = await fetch('/add', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ url })
+            });
+            let data = await response.json();
+            if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
+            this.results = [];
+        } catch (error) {
+            this.addError[url] = error.message;
+        } finally {
+            this.loadingAdd[url] = false;
+        }
+    }
+}">
+    <div class="max-w-xl mx-auto bg-white p-6 rounded shadow">
+        <h1 class="text-2xl font-bold mb-4">Audiobook Search</h1>
+        <div class="flex gap-2">
+            <input type="text" x-model="query" @keydown.enter="search" class="border p-2 flex-grow rounded" placeholder="Search for audiobooks...">
+            <button @click="search" :disabled="loadingSearch" class="bg-blue-500 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                Search
+            </button>
+        </div>
+        <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
+    </div>
+
+    <div class="max-w-xl mx-auto mt-6" x-show="results.length">
+        <template x-for="result in results" :key="result.Guid">
+            <div class="bg-white p-4 rounded shadow mb-2 flex items-center gap-4">
+                <img :src="result.Poster" class="w-16 h-16 object-cover rounded">
+                <div class="flex-grow">
+                    <h2 class="font-bold" x-text="result.Title"></h2>
+                    <p class="text-sm text-gray-600">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
+                </div>
+                <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]" class="bg-green-500 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
+                    <span x-show="loadingAdd[result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Add
+                </button>
+            </div>
+            <p x-show="addError[result.Link]" class="text-red-500 text-sm mt-1" x-text="addError[result.Link]"></p>
+        </template>
+    </div>
+</body>
+</html>
+
