@@ -12,11 +12,34 @@
     results: [],
     loadingSearch: false,
     searchError: '',
+    funnyMessages: [
+        'Searching... This better be worth it!',
+        'Hold on, this takes a while...',
+        'Still searching... Maybe grab a snack?',
+        'Patience, young grasshopper...',
+        'Wow, this is taking a minute!',
+        'Don’t worry, I got this!',
+        'Maybe go for a walk?',
+        'Still thinking... Almost there!',
+        'Finding the best results for you!',
+        'Hang tight! Searching magic happening!'
+    ],
+    currentFunnyMessage: '',
+    messageInterval: null,
+    
     async search() {
         if (!this.query) return;
         this.loadingSearch = true;
         this.searchError = '';
         this.results = [];
+
+        // Start funny messages loop
+        let index = 0;
+        this.messageInterval = setInterval(() => {
+            this.currentFunnyMessage = this.funnyMessages[index % this.funnyMessages.length];
+            index++;
+        }, 1000);
+
         try {
             let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
             if (!response.ok) throw new Error('Failed to fetch results');
@@ -26,13 +49,18 @@
             this.searchError = error.message;
         } finally {
             this.loadingSearch = false;
+            clearInterval(this.messageInterval);
+            this.currentFunnyMessage = '';
         }
     },
+
     loadingAdd: {},
     addError: {},
+    
     async add(url) {
         this.loadingAdd[url] = true;
         this.addError[url] = '';
+        
         try {
             let response = await fetch('/add', {
                 method: 'POST',
@@ -59,6 +87,7 @@
             </button>
         </div>
         <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
+        <p x-show="loadingSearch" class="text-gray-600 mt-2 italic" x-text="currentFunnyMessage"></p>
     </div>
 
     <div class="max-w-xl mx-auto mt-6" x-show="results.length">
