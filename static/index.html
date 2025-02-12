@@ -7,6 +7,23 @@
     <link rel="icon" href="/static/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        /* Style for the progress bar */
+        .progress-bar {
+            height: 1rem; /* Adjust height as needed */
+            background-color: #e2e8f0; /* Light gray background */
+            border-radius: 0.5rem; /* Rounded corners */
+            overflow: hidden; /* Hide overflow of the filled part */
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #4ade80; /* Green fill color */
+            border-radius: 0.5rem;
+            width: 0%; /* Initial width */
+            transition: width 0.5s ease-in-out; /* Smooth transition */
+        }
+    </style>
 </head>
 <body class="bg-gray-800 text-white p-6" x-data="{
     query: '',
@@ -97,8 +114,44 @@
 
     async keydown(event) {
       this.searchComplete = false;
+    },
+
+    torrentStatus: [],
+    loadingTorrentStatus: false,
+
+    async getTorrentStatus() {
+        this.loadingTorrentStatus = true;
+        try {
+            const response = await fetch('/list'); // Call your /list endpoint
+            if (!response.ok) {
+                throw new Error('Failed to fetch torrent status');
+            }
+            const data = await response.json();
+            this.torrentStatus = data;
+        } catch (error) {
+            console.error(error); // Handle error as needed
+        } finally {
+            this.loadingTorrentStatus = false;
+        }
     }
-}">
+}" x-init="getTorrentStatus">
+    <div class="max-w-3xl mx-auto mt-6" x-show="torrentStatus.length">
+        <h2 class="text-2xl font-bold mb-4">Torrent Status</h2>
+        <template x-for="torrent in torrentStatus" :key="torrent.id">
+            <div class="bg-gray-700 p-4 rounded shadow mb-2">
+                <h3 class="font-bold" x-text="torrent.name"></h3>
+                <p class="text-sm text-gray-400">Status: <span x-text="torrent.status"></span></p>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%' }"></div>
+                </div>
+                <p class="text-sm text-gray-400">
+                    Completed: <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB /
+                    Total: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
+                </p>
+            </div>
+        </template>
+        <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>
+    </div>
     <div class="max-w-xl mx-auto bg-gray-700 p-6 rounded shadow">
         <h1 class="text-2xl font-bold mb-4">Audiobook Search</h1>
         <div class="flex gap-2">

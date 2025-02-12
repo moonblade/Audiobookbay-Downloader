@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from pydantic import BaseModel
-from audiobookbay import search_audiobook, add_to_transmission
+from audiobookbay import get_torrents, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -57,6 +57,13 @@ def add(
     except Exception as e:
         logger.error(f"Add failed: {e}")
         raise HTTPException(status_code=500, detail="Add failed")
+
+@app.get("/list")
+def list():
+    """
+    Lists all torrents in the download queue.
+    """
+    return get_torrents()
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True) 
