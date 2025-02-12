@@ -129,10 +129,11 @@ def get_torrents(label=LABEL):
 def get_torrent_status(status_code):  # Helper function to convert status code
     status_map = {
         0: "Stopped",
-        1: "Check queued",
+        1: "Queued to check",
         2: "Checking",
-        3: "Downloading",
-        4: "Seeding",
-        5: "Idle"
+        3: "Queued to download",
+        4: "Downloading",
+        5: "Queued to seed",
+        6: "Seeding"
     }
     return status_map.get(status_code, "Unknown")
