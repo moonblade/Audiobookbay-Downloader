@@ -1,10 +1,12 @@
 from datetime import datetime
 
+from auth import validate_user
 from pydantic import BaseModel
 from audiobookbay import get_torrents, search_audiobook, add_to_transmission
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from utils import custom_logger
 import uvicorn
 import os
@@ -15,8 +17,19 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 logger = custom_logger(__name__)
 
+security = HTTPBasic()
+def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
+    user = validate_user(credentials.username, credentials.password)
+    if user is None:
+        raise HTTPException(
+            status_code=httpstatus.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return user
+
 @app.get("/")
-def root():
+def root(username: str = Depends(authenticate)):
     return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/status")
