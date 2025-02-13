@@ -128,20 +128,24 @@
     torrentStatus: [],
     loadingTorrentStatus: false,
 
-    async getTorrentStatus() {
+    getTorrentStatus: function() { // Modified to return a Promise
         this.loadingTorrentStatus = true;
-        try {
-            const response = await fetch('/list'); // Call your /list endpoint
-            if (!response.ok) {
-                throw new Error('Failed to fetch torrent status');
-            }
-            const data = await response.json();
-            this.torrentStatus = data;
-        } catch (error) {
-            console.error(error); // Handle error as needed
-        } finally {
-            this.loadingTorrentStatus = false;
-        }
+        return fetch('/list') // Return the fetch promise
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch torrent status');
+                }
+                return response.json(); // Return the parsed JSON promise
+            })
+            .then(data => {
+                this.torrentStatus = data;
+            })
+            .catch(error => {
+                console.error(error);
+            })
+            .finally(() => {
+                this.loadingTorrentStatus = false;
+            });
     },
     activeTab: 'search', // Initialize active tab
     query: '',
@@ -152,7 +156,7 @@
 }" x-init="getTorrentStatus">
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
         <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-l': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
-        <button @click="activeTab = 'status'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}" class="rounded-r">Status</button>
+        <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}" class="rounded-r">Status</button>
     </div>
 
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
