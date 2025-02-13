@@ -5,8 +5,12 @@ import requests
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
 USERSURL = os.getenv("USERSURL", "")
+# USERSURL returns a json of type {"users": [{"username": "user1", "password": "cGFzc3dvcmQ=", "role": "user"}]}
+
 
 def get_users():
+    if not USERSURL:
+        return {"users": []}
     response = requests.get(USERSURL)
     response.raise_for_status()
     users = response.json()
