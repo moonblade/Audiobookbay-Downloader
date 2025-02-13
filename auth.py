@@ -4,7 +4,7 @@ import requests
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
-USERSURL = os.getenv("USERSURL", "https://browse.sirius.moonblade.work/api/public/dl/rri_4V93")
+USERSURL = os.getenv("USERSURL", "")
 
 def get_users():
     response = requests.get(USERSURL)
