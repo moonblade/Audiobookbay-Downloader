@@ -304,7 +304,7 @@
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
         <h2 class="text-2xl font-bold mb-4">Audiobook Search</h2>
         <div class="flex gap-2">
-            <input type="text" x-model="query" @input="keydown" @keydown.enter="search" class="border p-2 flex-grow rounded bg-gray-600 text-white" placeholder="Search for audiobooks...">
+            <input type="text" x-model="query" @input="keydown" autocomplete="off" @keydown.enter="search" class="border p-2 flex-grow rounded bg-gray-600 text-white" placeholder="Search for audiobooks...">
             <button @click="search" :disabled="loadingSearch" class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
                 <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 Search
