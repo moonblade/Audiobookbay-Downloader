@@ -1,11 +1,12 @@
 from datetime import datetime
-
+from typing import Optional
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
 from audiobookbay import get_torrents, search_audiobook, add_to_transmission
-from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header
+from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from utils import custom_logger
 import uvicorn
@@ -13,13 +14,23 @@ import os
 
 app = FastAPI()
 
+SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
 
 logger = custom_logger(__name__)
 
 security = HTTPBasic()
-authkey = HTTPBasic()
-def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
+
+def authenticate(request: Request):
+    user_id = request.session.get("user_id")
+    if user_id:
+        user = validate_key(user_id)
+        if user:
+            return user
+    return None
+
+def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security)):
     user = validate_user(credentials.username, credentials.password)
     if user is None:
         raise HTTPException(
@@ -29,7 +40,8 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
         )
     return user
 
-def validate_admin(x_api_key: str = Header(None)):
+def validate_admin(request: Request):
+    x_api_key = request.session.get("user_id")
     if x_api_key is None:
         raise HTTPException(status_code=401, detail="Missing x-api-key header")
     user = validate_admin_key(x_api_key)
@@ -37,23 +49,34 @@ def validate_admin(x_api_key: str = Header(None)):
         raise HTTPException(status_code=401, detail="Invalid x-api-key")
     return user
 
-def validate_api_key(x_api_key: str = Header(None)):
-    if x_api_key is None:
-        raise HTTPException(status_code=401, detail="Missing x-api-key header")
-    user = validate_key(x_api_key)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid x-api-key")
-    return user
-
 @app.get("/")
-def root():
+def root(request: Request):
+    if "user_id" not in request.session:
+        return RedirectResponse("/login")
     return FileResponse(os.path.join("static", "index.html"))
 
-@app.get("/login")
-def login(userdetails: str = Depends(authenticate)):
-    return userdetails
+@app.get("/role")
+def role(request: Request, user: dict = Depends(authenticate_userpass)):
+    if user:
+        return {"role": user["role"]}
+    else:
+        return "Invalid credentials"
 
-@app.get("/status")
+@app.get("/login")
+def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
+    if user:
+        request.session["user_id"] = user["id"]
+        request.session["username"] = user["username"]
+        request.session["role"] = user["role"]
+        return RedirectResponse("/")
+    else:
+        return "Invalid credentials"
+
+@app.get("/logout")
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse("/login_page")
+
 def status():
     now = datetime.utcnow().isoformat() + "Z"
     return {"status": "ok", "timestamp": now}
@@ -61,13 +84,12 @@ def status():
 @app.get("/search")
 def search(
     query: str = Query(..., description="Search query"),
-    user: str = Depends(validate_api_key)
+    user: str = Depends(authenticate)
 ):
     """
     Searches a webpage based on the provided query and page number.
     """
     try:
-        logger.info(user)
         results = search_audiobook(query)
         return {"results": results}
     except Exception as e:
@@ -80,7 +102,7 @@ class TorrentRequest(BaseModel):
 @app.post("/add")
 def add(
     torrent: TorrentRequest,
-    user: str = Depends(validate_api_key)
+    user: str = Depends(authenticate)
 ):
     """
     Adds a torrent to the download queue.
@@ -96,7 +118,7 @@ def add(
         raise HTTPException(status_code=500, detail="Add failed")
 
 @app.get("/list")
-def list(user: str = Depends(validate_api_key)):
+def list(user: str = Depends(authenticate)):
     """
     Lists all torrents in the download queue.
     """
