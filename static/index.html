@@ -64,6 +64,48 @@
     ],
     currentFunnyMessage: '',
     messageInterval: null,
+    username: null,
+    role: null,
+    id: null,
+
+    init() {
+        this.authenticate();
+    },
+
+    async authenticate() {
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', '/login');
+
+        xhr.onload = async () => {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              this.username = data.username;
+              this.role = data.role;
+              this.id = data.id;
+              resolve();
+            } catch (jsonError) {
+              reject();
+              window.location.href = '/login';
+            }
+          } else if (xhr.status === 401) {
+              reject(); // Reject the promise if authentication fails
+              window.location.href = '/login';
+          } else {
+            reject();
+            window.location.href = '/login';
+          }
+        };
+
+        xhr.onerror = () => {
+            reject();
+            window.location.href = '/login';
+        };
+
+        xhr.send();
+      });
+    },
     
     async search() {
         if (!this.query) return;
@@ -80,8 +122,13 @@
             index++;
         }, 5000);
 
+        const headers = {
+            'x-api-key': this.id
+        };
         try {
-            let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
+            let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`, {
+              headers: headers
+            });
             if (!response.ok) throw new Error('Failed to fetch results');
             let data = await response.json();
             this.results = data.results || [];
@@ -107,7 +154,7 @@
         try {
             let response = await fetch('/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: {'Content-Type': 'application/json', 'x-api-key': this.id},
                 body: JSON.stringify({ url })
             });
             let data = await response.json();
@@ -130,7 +177,10 @@
 
     getTorrentStatus: function() { // Modified to return a Promise
         this.loadingTorrentStatus = true;
-        return fetch('/list') // Return the fetch promise
+        const headers = {
+            'x-api-key': this.id
+        };
+        return fetch('/list', { headers: headers }) // Return the fetch promise
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Failed to fetch torrent status');
@@ -153,7 +203,7 @@
     loadingSearch: false,
     searchComplete: false,
     searchError: '',
-}" x-init="getTorrentStatus">
+}" x-init="authenticate().then(getTorrentStatus)">
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
         <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-l': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
         <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}" class="rounded-r">Status</button>

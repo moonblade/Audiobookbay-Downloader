@@ -1,9 +1,5 @@
-import json
 import os
-from bs4 import BeautifulSoup
 import requests
-from urllib.parse import urljoin, urlparse
-import re
 
 from utils import custom_logger
 
@@ -36,7 +32,7 @@ def search_audiobook(query):
     logger.info(f"Found {len(results.get('Results', []))} results for {query}")
     return results.get("Results", [])
 
-def add_to_transmission(torrent_url, label=LABEL):
+def add_to_transmission(torrent_url, user, label=LABEL):
     torrent_url = get_jackett_magnet(torrent_url)
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")
@@ -57,7 +53,7 @@ def add_to_transmission(torrent_url, label=LABEL):
         # Get the newly added torrent's ID
         try:
           torrent_id = response.json()['arguments']['torrent-added']['id']
-          add_label_to_torrent(torrent_id, label) # Add the label after adding the torrent
+          add_label_to_torrent(torrent_id, user, label) # Add the label after adding the torrent
           return True
         except (KeyError, TypeError): # Handle cases where torrent-added might not be in the response
           print("Warning: Could not retrieve torrent ID from response. Label may not be applied.")
@@ -65,7 +61,7 @@ def add_to_transmission(torrent_url, label=LABEL):
 
     return False
 
-def add_label_to_torrent(torrent_id, label=LABEL):
+def add_label_to_torrent(torrent_id, user, label=LABEL):
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")
 
@@ -77,14 +73,14 @@ def add_label_to_torrent(torrent_id, label=LABEL):
         "method": "torrent-set",
         "arguments": {
             "ids": [torrent_id],
-            "labels": [label]
+            "labels": [user.get("id", "common"), label]
         }
     }
     headers = {"X-Transmission-Session-Id": session_id}
     response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
     return response.status_code == 200
 
-def get_torrents(label=LABEL):
+def get_torrents(user, label=LABEL):
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")
 
@@ -105,10 +101,10 @@ def get_torrents(label=LABEL):
         torrents = response.json()['arguments']['torrents']
         filtered_torrents = []
         for torrent in torrents:
-            if label in torrent.get("labels", []):
+            if (label in torrent.get("labels", []) and user.get("id", "common") in torrent.get("labels", [])) or user.get("role", "user") == "admin":
                 status = get_torrent_status(torrent["status"])
                 total_size = torrent["totalSize"]
-                percent_done = torrent["percentDone"] * 100  # Convert to percentage
+                percent_done = torrent["percentDone"] * 100
                 downloaded_ever = torrent["downloadedEver"]
                 uploaded_ever = torrent["uploadedEver"]
 

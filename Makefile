@@ -1,6 +1,9 @@
 JACKETT_API_KEY:=$(shell cat secrets/jackett.json | jq -r '.JACKETT_API_KEY')
 JACKETT_API_URL:=$(shell cat secrets/jackett.json | jq -r '.JACKETT_API_URL')
 TRANSMISSION_URL:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_URL')
+TRANSMISSION_USER:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_USER')
+TRANSMISSION_PASS:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_PASS')
+ADMIN_ID:=$(shell od -x /dev/urandom | head -1 | awk '{OFS="-"; print $$2$$3,$$4,$$5,$$6,$$7$$8$$9}')
 .EXPORT_ALL_VARIABLES:
 
 venv:

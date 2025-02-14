@@ -1,9 +1,9 @@
 from datetime import datetime
 
-from auth import validate_user
+from auth import validate_key, validate_user
 from pydantic import BaseModel
 from audiobookbay import get_torrents, search_audiobook, add_to_transmission
-from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus
+from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -18,6 +18,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 logger = custom_logger(__name__)
 
 security = HTTPBasic()
+authkey = HTTPBasic()
 def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
     user = validate_user(credentials.username, credentials.password)
     if user is None:
@@ -28,9 +29,21 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
         )
     return user
 
+def validate_api_key(x_api_key: str = Header(None)):
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing x-api-key header")
+    user = validate_key(x_api_key)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid x-api-key")
+    return user
+
 @app.get("/")
-def root(username: str = Depends(authenticate)):
+def root():
     return FileResponse(os.path.join("static", "index.html"))
+
+@app.get("/login")
+def login(userdetails: str = Depends(authenticate)):
+    return userdetails
 
 @app.get("/status")
 def status():
@@ -40,11 +53,13 @@ def status():
 @app.get("/search")
 def search(
     query: str = Query(..., description="Search query"),
+    user: str = Depends(validate_api_key)
 ):
     """
     Searches a webpage based on the provided query and page number.
     """
     try:
+        logger.info(user)
         results = search_audiobook(query)
         return {"results": results}
     except Exception as e:
@@ -57,12 +72,13 @@ class TorrentRequest(BaseModel):
 @app.post("/add")
 def add(
     torrent: TorrentRequest,
+    user: str = Depends(validate_api_key)
 ):
     """
     Adds a torrent to the download queue.
     """
     try:
-        success = add_to_transmission(torrent.url)
+        success = add_to_transmission(torrent.url, user)
         if success:
             return {"status": "ok", "message": "Torrent added successfully"}
         else:
@@ -72,11 +88,11 @@ def add(
         raise HTTPException(status_code=500, detail="Add failed")
 
 @app.get("/list")
-def list():
+def list(user: str = Depends(validate_api_key)):
     """
     Lists all torrents in the download queue.
     """
-    return get_torrents()
+    return get_torrents(user)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True) 
