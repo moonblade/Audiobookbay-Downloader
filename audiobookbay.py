@@ -13,6 +13,8 @@ LABEL = os.getenv("LABEL", "audiobook")
 
 def get_jackett_magnet(url):
     try:
+        if url.startswith("magnet:"):
+            return url
         response = requests.get(url, allow_redirects=False)
         if response.status_code in [301, 302]:
             return response.headers.get("Location", url)
