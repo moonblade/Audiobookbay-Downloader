@@ -73,9 +73,9 @@ def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
         return "Invalid credentials"
 
 @app.get("/logout")
-async def logout(request: Request):
+def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/login_page")
+    return RedirectResponse("/login")
 
 def status():
     now = datetime.utcnow().isoformat() + "Z"
