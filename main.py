@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from auth import add_user, change_password, delete_user, get_users, validate_admin_key, validate_key, validate_user
+from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
 from audiobookbay import get_torrents, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header
