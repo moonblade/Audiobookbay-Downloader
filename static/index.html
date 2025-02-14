@@ -88,11 +88,6 @@
             if (!response.ok) throw new Error('Failed to fetch results');
             let data = await response.json();
             this.results = data.results || [];
-            this.results.forEach(result => {
-                if (result.MagnetUri && !result.Link) {
-                    result.Link = result.MagnetUri;
-                }
-            });
         } catch (error) {
             this.searchError = error.message;
         } finally {
@@ -326,12 +321,12 @@
                         <h2 class="font-bold" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                     </div>
-                    <button @click="add(result.Link)" :disabled="loadingAdd[result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
-                        <span x-show="loadingAdd[result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
+                        <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                         Add
                     </button>
                 </div>
-                <p x-show="addError[result.Link]" class="text-red-500 text-sm mt-1" x-text="addError[result.Link]"></p>
+                <p x-show="addError[result.MagnetUri || result.Link]" class="text-red-500 text-sm mt-1" x-text="addError[result.MagnetUri || result.Link]"></p>
             </template>
         </div>
 
