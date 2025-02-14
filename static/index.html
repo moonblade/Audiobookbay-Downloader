@@ -203,10 +203,68 @@
     loadingSearch: false,
     searchComplete: false,
     searchError: '',
+    users: [],
+    loadingUsers: false,
+    newUser: { username: '', password: '' },
+    newUserError: '',
+
+    getUsers() {
+        this.loadingUsers = true;
+        fetch('/users', {
+            headers: { 'x-api-key': this.id }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to fetch users');
+            }
+            return response.json();
+        })
+        .then(data => {
+            this.users = data;
+        })
+        .catch(error => {
+            console.error(error);
+        })
+        .finally(() => {
+            this.loadingUsers = false;
+        });
+    },
+
+    createUser() {
+        this.newUserError = '';
+        if (!this.newUser.username || !this.newUser.password) {
+            this.newUserError = 'Username and password are required.';
+            return;
+        }
+
+        fetch('/users', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': this.id
+            },
+            body: JSON.stringify(this.newUser)
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {throw new Error(err.detail || 'Failed to create user')});
+            }
+            this.newUser = { username: '', password: '' }; // Clear form
+            this.getUsers(); // Refresh user list
+            this.searchError = 'User created successfully!'; // or a less intrusive notification
+        })
+        .catch(error => {
+            console.error(error);
+            this.newUserError = error.message;
+        });
+    }
 }" x-init="authenticate().then(getTorrentStatus)">
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
         <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-l': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
         <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}" class="rounded-r">Status</button>
+        <template x-if="role === 'admin'">
+            <button @click="activeTab = 'users'; getUsers();" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'users', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'users'}" class="rounded-r">Users</button>
+        </template>
     </div>
 
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
@@ -257,6 +315,38 @@
             </div>
         </template>
         <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>
+    </div>
+
+    <div x-show="activeTab === 'users'" class="max-w-3xl mx-auto mt-6">
+        <h2 class="text-2xl font-bold mb-4">Users</h2>
+
+        <template x-if="!loadingUsers">
+            <div>
+                <table class="min-w-full divide-y divide-gray-700">
+                    <thead>
+                        <tr>
+                            <th class="px-4 py-2 text-left text-gray-400">Username</th>
+                            <th class="px-4 py-2 text-left text-gray-400">Role</th> </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="user in users" :key="user.id">
+                            <tr class="hover:bg-gray-700">
+                                <td class="px-4 py-2" x-text="user.username"></td>
+                                <td class="px-4 py-2" x-text="user.role"></td> </tr>
+                        </template>
+                    </tbody>
+                </table>
+
+                <div class="mt-4">
+                    <h3 class="text-xl font-bold mb-2">Create New User</h3>
+                    <p x-show="newUserError" class="text-red-500 mt-2" x-text="newUserError"></p>
+                    <input type="text" x-model="newUser.username" class="border p-2 rounded bg-gray-600 text-white mr-2" placeholder="Username">
+                    <input type="password" x-model="newUser.password" class="border p-2 rounded bg-gray-600 text-white mr-2" placeholder="Password">
+                    <button @click="createUser" class="bg-blue-600 text-white px-4 py-2 rounded">Create User</button>
+                </div>
+            </div>
+        </template>
+        <p x-show="loadingUsers" class="text-center text-gray-400">Loading users...</p>
     </div>
 </body>
 </html>

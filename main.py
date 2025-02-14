@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from auth import validate_key, validate_user
+from auth import add_user, change_password, delete_user, get_users, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
 from audiobookbay import get_torrents, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header
@@ -27,6 +27,14 @@ def authenticate(credentials: HTTPBasicCredentials = Depends(security)):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Basic"},
         )
+    return user
+
+def validate_admin(x_api_key: str = Header(None)):
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing x-api-key header")
+    user = validate_admin_key(x_api_key)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid x-api-key")
     return user
 
 def validate_api_key(x_api_key: str = Header(None)):
@@ -96,3 +104,54 @@ def list(user: str = Depends(validate_api_key)):
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True) 
+
+class CreateUserRequest(BaseModel):
+    username: str
+    password: str
+@app.put("/users")
+def _add_user(createUserRequest: CreateUserRequest, user: str = Depends(validate_admin)):
+    """
+    Adds a user to the database.
+    """
+    try:
+        add_user(createUserRequest.username, createUserRequest.password)
+        return {"status": "ok", "message": "User added successfully"}
+    except Exception as e:
+        logger.error(f"Add user failed: {e}")
+        raise HTTPException(status_code=500, detail="Add user failed")
+
+@app.get("/users")
+def _get_user(user: str = Depends(validate_admin)):
+    """
+    Retrieves the user details.
+    """
+    return get_users_list()
+
+@app.delete("/users/{id}")
+def _delete_user(id: str, user: str = Depends(validate_admin)):
+    """
+    Deletes a user from the database.
+    """
+    try:
+        delete_user(id)
+        return {"status": "ok", "message": "User deleted successfully"}
+    except Exception as e:
+        logger.error(f"Delete user failed: {e}")
+        raise HTTPException(status_code=500, detail="Delete user failed")
+
+class ChangePasswordRequest(BaseModel):
+    id: str
+    password: str
+
+@app.post("/change_password")
+def _change_password(changePasswordRequest: ChangePasswordRequest, user: str = Depends(validate_admin)):
+    """
+    Changes the password for a user.
+    """
+    try:
+        change_password(changePasswordRequest.id, changePasswordRequest.password)
+        return {"status": "ok", "message": "Password changed successfully"}
+    except Exception as e:
+        logger.error(f"Change password failed: {e}")
+        raise HTTPException(status_code=500, detail="Change password failed")
+
