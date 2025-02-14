@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
-from audiobookbay import get_torrents, search_audiobook, add_to_transmission
+from audiobookbay import delete_torrent, get_torrents, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -177,3 +177,20 @@ def _change_password(changePasswordRequest: ChangePasswordRequest, user: str = D
         logger.error(f"Change password failed: {e}")
         raise HTTPException(status_code=500, detail="Change password failed")
 
+@app.delete("/torrent/{torrent_id}")
+def delete_torrent_endpoint(
+    torrent_id: int,
+    delete_data: bool = Query(True, description="Delete downloaded data as well"),
+    user: dict = Depends(authenticate) # Requires authentication
+):
+    """
+    Deletes a torrent.
+    """
+    try:
+        if delete_torrent(torrent_id, delete_data=delete_data, user=user):  # Pass user to delete_torrent
+            return {"status": "ok", "message": f"Torrent {torrent_id} deleted successfully."}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to delete torrent {torrent_id}")
+    except Exception as e:
+        logger.error(f"Delete torrent failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Delete torrent failed: {e}")

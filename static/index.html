@@ -291,6 +291,49 @@
             window.location.href = '/login';
         }
     },
+
+    deletingTorrent: null,
+    deleteTorrentError: null,
+    confirmDelete: false,
+    torrentToDelete: null,
+
+    async deleteTorrent(torrentId) {
+        this.torrentToDelete = torrentId;
+        this.confirmDelete = true;
+    },
+
+    async confirmDeleteTorrent() {
+        if (!this.torrentToDelete) return; // Guard clause
+        this.deletingTorrent = this.torrentToDelete;
+        this.deleteTorrentError = null;
+
+        try {
+            const response = await fetch(`/torrent/${this.torrentToDelete}?delete_data=true`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to delete torrent');
+            }
+
+            this.getTorrentStatus(); // Refresh torrent list
+            this.confirmDelete = false;
+            this.torrentToDelete = null;
+            this.deletingTorrent = null;
+        } catch (error) {
+            console.error('Error deleting torrent:', error);
+            this.deleteTorrentError = error.message;
+        } finally {
+            this.deletingTorrent = null;
+        }
+    },
+
+    cancelDeleteTorrent() {
+        this.confirmDelete = false;
+        this.torrentToDelete = null;
+        this.deleteTorrentError = null;
+    },
 }" x-init="fetchRole">
 
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
@@ -336,19 +379,41 @@
     <div x-show="activeTab === 'status'" class="max-w-3xl mx-auto mt-6">
         <h2 class="text-2xl font-bold mb-4">Torrent Status</h2>
         <template x-for="torrent in torrentStatus" :key="torrent.id">
-            <div class="bg-gray-700 p-4 rounded shadow mb-2">
-                <h3 class="font-bold" x-text="torrent.name"></h3>
-                <p class="text-sm text-gray-400">Status: <span x-text="torrent.status"></span></p>
-                <div class="progress-bar">
-                    <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%' }"></div>
+            <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center"> <div class="flex-grow">  <h3 class="font-bold" x-text="torrent.name"></h3>
+                    <p class="text-sm text-gray-400">Status: <span x-text="torrent.status"></span></p>
+                    <div class="progress-bar">
+                        <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%' }"></div>
+                    </div>
+                    <p class="text-sm text-gray-400">
+                        Completed: <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB /
+                        Total: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
+                    </p>
                 </div>
-                <p class="text-sm text-gray-400">
-                    Completed: <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB /
-                    Total: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
-                </p>
+                <button @click="deleteTorrent(torrent.id)" :disabled="deletingTorrent === torrent.id"
+                        class="bg-red-600 text-white px-3 py-1 rounded ml-2 flex items-center disabled:opacity-50">
+                    <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Delete
+                </button>
             </div>
         </template>
         <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>
+        <p x-show="deleteTorrentError" class="text-red-500 mt-2" x-text="deleteTorrentError"></p>
+
+        <template x-if="confirmDelete">
+            <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center">
+                <div class="bg-gray-700 p-6 rounded">
+                    <h3 class="text-xl font-bold mb-4">Confirm Delete</h3>
+                    <p>Are you sure you want to delete this torrent and its data?</p>
+                    <div class="mt-4 flex justify-end gap-2">
+                        <button @click="confirmDeleteTorrent" :disabled="deletingTorrent" class="bg-red-600 text-white px-4 py-2 rounded">
+                            <span x-show="deletingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                            Delete
+                        </button>
+                        <button @click="cancelDeleteTorrent" class="bg-gray-500 text-white px-4 py-2 rounded">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </template>
     </div>
 
     <div x-show="activeTab === 'users'" class="max-w-3xl mx-auto mt-6">

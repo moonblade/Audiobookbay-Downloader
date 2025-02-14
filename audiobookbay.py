@@ -139,3 +139,54 @@ def get_torrent_status(status_code):  # Helper function to convert status code
         6: "Seeding"
     }
     return status_map.get(status_code, "Unknown")
+
+def delete_torrent(torrent_id, user=None, delete_data=True):
+    """Deletes a torrent from Transmission.
+
+    Args:
+        torrent_id: The ID of the torrent to delete.
+        delete_data: If True, also deletes the downloaded data. Defaults to False.
+        user: User dict, used for authorization. If None, assumes admin.
+
+    Returns:
+        True if the torrent was successfully deleted, False otherwise.
+    """
+
+    session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
+    session_id = session_response.headers.get("X-Transmission-Session-Id")
+
+    if not session_id:
+        print("Failed to get Transmission session ID")
+        return False
+
+    # Authorization check (if user is provided)
+    if not user:
+        return False # User must be provided
+
+    if user and user.get("role") != "admin":
+        torrents = get_torrents(user)  # Retrieve torrents for user
+        if torrents is None:
+          return False # Error getting torrent list
+        torrent_ids = [t["id"] for t in torrents]
+        if torrent_id not in torrent_ids:
+          logger.warning(f"User {user.get('id')} tried to delete torrent {torrent_id} without permission.")
+          return False # User does not have access to delete this torrent
+
+
+    payload = {
+        "method": "torrent-remove",
+        "arguments": {
+            "ids": [torrent_id],
+            "delete-local-data": delete_data  # Set to True to delete data
+        }
+    }
+    headers = {"X-Transmission-Session-Id": session_id}
+
+    response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
+
+    if response.status_code == 200:
+        logger.info(f"Torrent {torrent_id} {'and its data' if delete_data else ''} deleted successfully.")
+        return True
+    else:
+        logger.error(f"Error deleting torrent {torrent_id}: {response.status_code} - {response.text}")
+        return False
