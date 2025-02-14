@@ -88,6 +88,11 @@
             if (!response.ok) throw new Error('Failed to fetch results');
             let data = await response.json();
             this.results = data.results || [];
+            this.results.forEach(result => {
+                if (result.MagnetUri && !result.Link) {
+                    result.Link = result.MagnetUri;
+                }
+            });
         } catch (error) {
             this.searchError = error.message;
         } finally {
@@ -283,12 +288,12 @@
             const data = await response.json();
             this.role = data.role;  // Set the role in your Alpine component data
             if (this.role === null) {
-                window.location.href = '/login_page'; // Redirect if not logged in
+                window.location.href = '/login'; // Redirect if not logged in
             }
         } catch (error) {
             console.error('Error fetching role:', error);
             // Handle error, e.g., redirect to login
-            window.location.href = '/login_page';
+            window.location.href = '/login';
         }
     },
 }" x-init="fetchRole">
