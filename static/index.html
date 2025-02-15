@@ -362,7 +362,7 @@
                 <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center gap-4">
                     <img :src="result.Poster" class="w-16 h-16 object-cover rounded">
                     <div class="flex-grow">
-                        <h2 class="font-bold" x-text="result.Title"></h2>
+                        <h2 class="font-bold break-words" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                     </div>
                     <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
