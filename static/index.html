@@ -360,8 +360,8 @@
         <div class="max-w-3xl mx-auto mt-6" x-show="results.length">
             <template x-for="result in results" :key="result.Guid">
                 <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center gap-4">
-                    <img :src="result.Poster" class="w-16 h-16 object-cover rounded">
-                    <div class="flex-grow">
+                    <img :src="result.Poster" x-show="result.Poster" class="w-16 h-16 object-cover rounded">
+                    <div class="flex-grow w-3/4">
                         <h2 class="font-bold break-words" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                     </div>
