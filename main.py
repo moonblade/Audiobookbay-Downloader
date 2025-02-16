@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
@@ -68,6 +68,17 @@ def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]
         request.session["role"] = user["role"]
+
+        # Set a long-lived cookie (one year)
+        expiry_date = datetime.utcnow() + timedelta(days=365)
+        expiry_str = expiry_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+        request.session.cookie["user_id"] = user["id"]
+        request.session.cookie["user_id"]["expires"] = expiry_str
+        request.session.cookie["user_id"]["samesite"] = "Lax"
+        request.session.cookie["user_id"]["secure"] = True
+        request.session.cookie["user_id"]["httponly"] = True
+
         return RedirectResponse("/")
     else:
         return "Invalid credentials"
@@ -75,7 +86,9 @@ def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
 @app.get("/logout")
 def logout(request: Request):
     request.session.clear()
-    return RedirectResponse("/login")
+    response = RedirectResponse("/login")
+    response.delete_cookie("user_id")
+    return response
 
 def status():
     now = datetime.utcnow().isoformat() + "Z"
