@@ -56,7 +56,7 @@ def root(request: Request):
     return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/role")
-def role(request: Request, user: dict = Depends(authenticate_userpass)):
+def role(request: Request, user: dict = Depends(authenticate)):
     if user:
         return {"role": user["role"]}
     else:
@@ -68,16 +68,16 @@ def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]
         request.session["role"] = user["role"]
-
-        # Set a long-lived cookie (one year)
-        expiry_date = datetime.utcnow() + timedelta(days=365)
-        expiry_str = expiry_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
-
-        request.session.cookie["user_id"] = user["id"]
-        request.session.cookie["user_id"]["expires"] = expiry_str
-        request.session.cookie["user_id"]["samesite"] = "Lax"
-        request.session.cookie["user_id"]["secure"] = True
-        request.session.cookie["user_id"]["httponly"] = True
+        #
+        # # Set a long-lived cookie (one year)
+        # expiry_date = datetime.utcnow() + timedelta(days=365)
+        # expiry_str = expiry_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+        #
+        # request.session.cookie["user_id"] = user["id"]
+        # request.session.cookie["user_id"]["expires"] = expiry_str
+        # request.session.cookie["user_id"]["samesite"] = "Lax"
+        # request.session.cookie["user_id"]["secure"] = True
+        # request.session.cookie["user_id"]["httponly"] = True
 
         return RedirectResponse("/")
     else:
