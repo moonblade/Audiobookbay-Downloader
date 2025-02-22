@@ -97,7 +97,7 @@ def get_torrents(user, label=LABEL):
     payload = {
         "method": "torrent-get",
         "arguments": {
-            "fields": ["id", "name", "status", "labels", "totalSize", "percentDone", "downloadedEver", "uploadedEver"]  # Added size and progress fields
+            "fields": ["id", "name", "status", "labels", "totalSize", "percentDone", "downloadedEver", "uploadedEver", "addedDate"]  # Added size and progress fields
         }
     }
     headers = {"X-Transmission-Session-Id": session_id}
@@ -113,6 +113,7 @@ def get_torrents(user, label=LABEL):
                 percent_done = torrent["percentDone"] * 100
                 downloaded_ever = torrent["downloadedEver"]
                 uploaded_ever = torrent["uploadedEver"]
+                added_date = torrent["addedDate"]
 
                 filtered_torrents.append({
                     "id": torrent["id"],
@@ -121,8 +122,11 @@ def get_torrents(user, label=LABEL):
                     "total_size": total_size,  # Size in bytes
                     "percent_done": percent_done, # Percentage
                     "downloaded_ever": downloaded_ever, # Bytes
-                    "uploaded_ever": uploaded_ever # Bytes
+                    "uploaded_ever": uploaded_ever, # Bytes
+                    "added_date": added_date
                 })
+
+        filtered_torrents.sort(key=lambda x: x["added_date"], reverse=True) # Sort in descending order
         return filtered_torrents
     else:
         print(f"Error getting torrent list: {response.status_code}")
