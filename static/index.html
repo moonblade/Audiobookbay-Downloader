@@ -399,7 +399,7 @@
             <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center"> <div class="flex-grow">  <h3 class="font-bold" x-text="torrent.name"></h3>
                     <p class="text-sm text-gray-400">Status: <span x-text="torrent.status"></span></p>
                     <div class="progress-bar">
-                        <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%' }"></div>
+                    <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%', backgroundColor: torrent.status === 'Stopped' ? '#a0aec0' : '#4ade80' }"></div>
                     </div>
                     <p class="text-sm text-gray-400">
                         <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB / <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
