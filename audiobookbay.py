@@ -128,7 +128,7 @@ def get_torrents(user, label=LABEL):
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 
-        filtered_torrents.sort(key=lambda x: x["added_date"], reverse=True) # Sort in descending order
+        filtered_torrents.sort(key=lambda x: (x["status"] != "Stopped", x["added_date"]), reverse=True) # Sort by status and then by added date
         return filtered_torrents
     else:
         print(f"Error getting torrent list: {response.status_code}")
