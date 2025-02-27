@@ -114,7 +114,7 @@ def get_torrents(user, label=LABEL):
                 downloaded_ever = torrent["downloadedEver"]
                 uploaded_ever = torrent["uploadedEver"]
                 added_date = torrent["addedDate"]
-                upload_ratio = torrent.get("uploadRatio", 0.0)
+                upload_ratio = round(torrent.get("uploadRatio", 0.0), 2)
 
                 filtered_torrents.append({
                     "id": torrent["id"],
