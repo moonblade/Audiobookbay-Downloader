@@ -15,6 +15,7 @@ import os
 app = FastAPI()
 
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
+TITLE = os.getenv("TITLE", "Audiobook Search")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
 
@@ -54,6 +55,10 @@ def root(request: Request):
     if "user_id" not in request.session:
         return RedirectResponse("/login")
     return FileResponse(os.path.join("static", "index.html"))
+
+@app.get("/title")
+def title():
+    return {"title": TITLE}
 
 @app.get("/role")
 def role(request: Request, user: dict = Depends(authenticate)):

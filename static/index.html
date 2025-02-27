@@ -164,6 +164,7 @@
     editingUser: null,
     editPassword: '',
     editError: '',
+    title: 'Audiobook Search',
     deleteError: '',
 
     getUsers() {
@@ -271,8 +272,23 @@
         }
     },
 
+    async setTitle() {
+        try {
+            const response = await fetch('/title');
+            if (!response.ok) {
+                throw new Error('Failed to fetch title');
+            }
+            const data = await response.json();
+            document.title = data.title;
+            this.title = data.title;
+        } catch (error) {
+            console.error('Error fetching title:', error);
+        }
+    },
+
     init() {
         this.fetchRole(); // Call this function to get the role
+        this.setTitle();
     },
 
     async fetchRole() {
@@ -335,7 +351,7 @@
         this.torrentToDelete = null;
         this.deleteTorrentError = null;
     },
-}" x-init="fetchRole">
+}" x-init="init">
 
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
         <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-l': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
@@ -346,7 +362,7 @@
     </div>
 
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
-        <h2 class="text-2xl font-bold mb-4">Audiobook Search</h2>
+        <h2 class="text-2xl font-bold mb-4" x-text="title"></h2>
         <div class="flex gap-2">
             <input type="text" x-model="query" @input="keydown" autocomplete="off" @keydown.enter="search" class="border p-2 flex-grow rounded bg-gray-600 text-white" placeholder="Search for audiobooks...">
             <button @click="search" :disabled="loadingSearch" class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
@@ -386,8 +402,10 @@
                         <div class="progress-bar-fill" :style="{ width: torrent.percent_done + '%' }"></div>
                     </div>
                     <p class="text-sm text-gray-400">
-                        Completed: <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB /
-                        Total: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
+                        <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB / <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
+                        <span x-show="torrent.upload_ratio > 0">
+                          , ratio: <span x-text="torrent.upload_ratio"></span>
+                        </span>
                     </p>
                 </div>
                 <button @click="deleteTorrent(torrent.id)" :disabled="deletingTorrent === torrent.id"
