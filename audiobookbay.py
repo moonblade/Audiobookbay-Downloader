@@ -146,6 +146,90 @@ def get_torrent_status(status_code):  # Helper function to convert status code
     }
     return status_map.get(status_code, "Unknown")
 
+def pause_torrent(torrent_id, user=None):
+    """Pauses a torrent in Transmission.
+
+    Args:
+        torrent_id: The ID of the torrent to pause.
+
+    Returns:
+        True if the torrent was successfully paused, False otherwise.
+    """
+    session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
+    session_id = session_response.headers.get("X-Transmission-Session-Id")
+
+    if not session_id:
+        print("Failed to get Transmission session ID")
+        return False
+
+    if user and user.get("role") != "admin":
+        torrents = get_torrents(user)  # Retrieve torrents for user
+        if torrents is None:
+            raise Exception("Error getting torrent list")
+        torrent_ids = [t["id"] for t in torrents]
+        if torrent_id not in torrent_ids:
+            logger.warning(f"User {user.get('id')} tried to delete torrent {torrent_id} without permission.")
+            raise Exception("User does not have access to delete this torrent")
+
+    payload = {
+        "method": "torrent-stop",
+        "arguments": {
+            "ids": [torrent_id]
+        }
+    }
+    headers = {"X-Transmission-Session-Id": session_id}
+
+    response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
+
+    if response.status_code == 200:
+        logger.info(f"Torrent {torrent_id} paused successfully.")
+        return True
+    else:
+        logger.error(f"Error pausing torrent {torrent_id}: {response.status_code} - {response.text}")
+        return False
+
+def play_torrent(torrent_id, user=None):
+    """Starts a torrent in Transmission.
+
+    Args:
+        torrent_id: The ID of the torrent to start.
+
+    Returns:
+        True if the torrent was successfully started, False otherwise.
+    """
+    session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
+    session_id = session_response.headers.get("X-Transmission-Session-Id")
+
+    if not session_id:
+        print("Failed to get Transmission session ID")
+        return False
+
+    if user and user.get("role") != "admin":
+        torrents = get_torrents(user)  # Retrieve torrents for user
+        if torrents is None:
+            raise Exception("Error getting torrent list")
+        torrent_ids = [t["id"] for t in torrents]
+        if torrent_id not in torrent_ids:
+            logger.warning(f"User {user.get('id')} tried to start torrent {torrent_id} without permission.")
+            raise Exception("User does not have access to start this torrent")
+
+    payload = {
+        "method": "torrent-start",
+        "arguments": {
+            "ids": [torrent_id]
+        }
+    }
+    headers = {"X-Transmission-Session-Id": session_id}
+
+    response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
+
+    if response.status_code == 200:
+        logger.info(f"Torrent {torrent_id} started successfully.")
+        return True
+    else:
+        logger.error(f"Error starting torrent {torrent_id}: {response.status_code} - {response.text}")
+        return False
+
 def delete_torrent(torrent_id, user=None, delete_data=True):
     """Deletes a torrent from Transmission.
 

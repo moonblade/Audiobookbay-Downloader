@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from pydantic import BaseModel
-from audiobookbay import delete_torrent, get_torrents, search_audiobook, add_to_transmission
+from audiobookbay import delete_torrent, get_torrents, pause_torrent, play_torrent, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -212,3 +212,37 @@ def delete_torrent_endpoint(
     except Exception as e:
         logger.error(f"Delete torrent failed: {e}")
         raise HTTPException(status_code=500, detail=f"Delete torrent failed: {e}")
+
+@app.post("/torrent/{torrent_id}/pause")
+def pause_torrent_endpoint(
+    torrent_id: int,
+    user: dict = Depends(authenticate) # Requires authentication
+):
+    """
+    Pauses a torrent.
+    """
+    try:
+        if pause_torrent(torrent_id, user):
+            return {"status": "ok", "message": f"Torrent {torrent_id} paused successfully."}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to pause torrent {torrent_id}")
+    except Exception as e:
+        logger.error(f"Pause torrent failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Pause torrent failed: {e}")
+
+@app.post("/torrent/{torrent_id}/play")
+def play_torrent_endpoint(
+    torrent_id: int,
+    user: dict = Depends(authenticate) # Requires authentication
+):
+    """
+    Plays a torrent.
+    """
+    try:
+        if play_torrent(torrent_id, user):
+            return {"status": "ok", "message": f"Torrent {torrent_id} played successfully."}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to play torrent {torrent_id}")
+    except Exception as e:
+        logger.error(f"Play torrent failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Play torrent failed: {e}")

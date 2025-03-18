@@ -351,6 +351,24 @@
         this.torrentToDelete = null;
         this.deleteTorrentError = null;
     },
+
+    async toggleTorrent(torrentId, status) {
+        try {
+            const action = status === 'Stopped' ? 'play' : 'pause';
+            const response = await fetch(`/torrent/${torrentId}/${action}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to ${action} torrent`);
+            }
+
+            this.getTorrentStatus(); // Refresh torrent list
+        } catch (error) {
+            console.error(`Error toggling torrent:`, error);
+        }
+    },
 }" x-init="init">
 
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
@@ -397,7 +415,6 @@
         <h2 class="text-2xl font-bold mb-4">Torrent Status</h2>
         <template x-for="torrent in torrentStatus" :key="torrent.id">
             <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center"> <div class="flex-grow">  <h3 class="font-bold" x-text="torrent.name"></h3>
-                    <p class="text-sm text-gray-400">Status: <span x-text="torrent.status"></span></p>
                     <div class="progress-bar" :style="{backgroundColor: torrent.status === 'Seeding' ? '#4ade80' : '#e2e8f0'}">
                     <div class="progress-bar-fill" :style="{
                         width: torrent.status === 'Stopped' ? torrent.percent_done + '%' : (torrent.upload_ratio > 0 ? torrent.upload_ratio * 100 + '%' : torrent.percent_done + '%'),
@@ -405,17 +422,22 @@
                     }"></div>
                     </div>
                     <p class="text-sm text-gray-400">
-                        <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB / <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB
+                        <span x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2)"></span> MB / <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2)"></span> MB,
+                        <span x-text="torrent.status"></span>
                         <span x-show="torrent.upload_ratio > 0">
-                          , ratio: <span x-text="torrent.upload_ratio"></span>
+                          (<span x-text="torrent.upload_ratio"></span>)
                         </span>
                     </p>
                 </div>
-                <button @click="deleteTorrent(torrent.id)" :disabled="deletingTorrent === torrent.id"
-                        class="bg-red-600 text-white px-3 py-1 rounded ml-2 flex items-center disabled:opacity-50">
-                    <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                    <i class="fas fa-trash-alt"  @click="deleteTorrent(torrent.id)" :disabled="deletingTorrent === torrent.id"> </i>
-                </button>
+            <button @click="toggleTorrent(torrent.id, torrent.status)" :disabled="deletingTorrent === torrent.id"
+                    class="bg-yellow-600 text-white px-3 py-1 rounded ml-2 flex items-center disabled:opacity-50">
+                <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>
+            </button>
+            <button @click="deleteTorrent(torrent.id)" :disabled="deletingTorrent === torrent.id"
+                    class="bg-red-600 text-white px-3 py-1 rounded ml-2 flex items-center disabled:opacity-50">
+                <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <i class="fas fa-trash-alt"></i>
+            </button>
             </div>
         </template>
         <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>
