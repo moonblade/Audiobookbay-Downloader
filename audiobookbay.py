@@ -75,11 +75,20 @@ def add_label_to_torrent(torrent_id, user, label=LABEL):
         print("Failed to get Transmission session ID")
         return []
 
+    torrents = get_torrents(user, torrent_id=torrent_id)
+    if not torrents:
+        print(f"Failed to retrieve torrent with ID {torrent_id}")
+        return False
+
+    current_labels = torrents[0].get("labels", [])
+
+    new_labels = list(set(current_labels + [user.get("id", "common"), label]))
+
     payload = {
         "method": "torrent-set",
         "arguments": {
             "ids": [torrent_id],
-            "labels": [user.get("id", "common"), label]
+            "labels": new_labels
         }
     }
     headers = {"X-Transmission-Session-Id": session_id}
