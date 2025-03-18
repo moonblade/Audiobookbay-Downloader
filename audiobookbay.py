@@ -67,7 +67,7 @@ def add_to_transmission(torrent_url, user, label=LABEL):
 
     return False
 
-def add_label_to_torrent(torrent_id, user, label=LABEL):
+def add_label_to_torrent(torrent_id, user=None, label=LABEL):
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")
 
@@ -82,7 +82,9 @@ def add_label_to_torrent(torrent_id, user, label=LABEL):
 
     current_labels = torrents[0].get("labels", [])
 
-    new_labels = list(set(current_labels + [user.get("id", "common"), label]))
+    new_labels = list(set(current_labels + [label]))
+    if user:
+        new_labels = list(set(new_labels + [user.get("id", "common")]))
 
     payload = {
         "method": "torrent-set",

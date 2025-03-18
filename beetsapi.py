@@ -5,16 +5,18 @@ from beets.library import Library
 from beets import config, plugins
 from beets.autotag import Recommendation
 
-from audiobookbay import get_torrents
+from audiobookbay import add_label_to_torrent, get_torrents
 from utils import custom_logger
 
 logger = custom_logger(__name__)
 
 config.read()
 plugins.load_plugins(str(config["plugins"]).split(" "))
+
 BEETS_DIR = os.getenv("BEETS_DIR", "/config")
 BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
 BEETS_OUTPUT_PATH = os.getenv("BEETS_OUTPUT_PATH", "/beetsoutput")
+ADMIN_USER = {"role": "admin"}
 lib = Library(os.path.join(BEETS_DIR, "library.db"))
 
 class ProgrammaticImportSession(importer.ImportSession):
@@ -95,7 +97,7 @@ def getFolders(torrent):
     return list(folders)
 
 def autoimport():
-    torrents = get_torrents({"role": "admin"})
+    torrents = get_torrents(ADMIN_USER)
     torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and "beets" not in torrent.get("labels"))]
     if not torrents:
         logger.warn("No torrents found")
@@ -112,6 +114,7 @@ def autoimport():
                 query=None
             )
             session.run()
+            # add_label_to_torrent(torrent.get("id"), ADMIN_USER, "beets")
         except Exception as e:
             logger.error(f"Import failed: {e}")
             continue
