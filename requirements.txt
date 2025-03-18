@@ -4,3 +4,6 @@ pydantic==2.10.6
 requests==2.26.0
 starlette==0.45.3
 itsdangerous==2.2.0
+beets==2.2.0
+beets-audible==1.0.1
+beets-copyartifacts3==0.1.5

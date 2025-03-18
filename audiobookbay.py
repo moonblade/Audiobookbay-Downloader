@@ -86,18 +86,18 @@ def add_label_to_torrent(torrent_id, user, label=LABEL):
     response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
     return response.status_code == 200
 
-def get_torrents(user, label=LABEL):
+def get_torrents(user, label=LABEL, torrent_id=None):
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")
 
     if not session_id:
         print("Failed to get Transmission session ID")
-        return None
+        return []
 
     payload = {
         "method": "torrent-get",
         "arguments": {
-            "fields": ["id", "name", "status", "labels", "totalSize", "percentDone", "downloadedEver", "uploadedEver", "addedDate", "uploadRatio"]  # Added size, progress, and ratio fields
+            "fields": ["id", "name", "status", "labels", "totalSize", "percentDone", "downloadedEver", "uploadedEver", "addedDate", "uploadRatio", "files"]
         }
     }
     headers = {"X-Transmission-Session-Id": session_id}
@@ -107,7 +107,7 @@ def get_torrents(user, label=LABEL):
         torrents = response.json()['arguments']['torrents']
         filtered_torrents = []
         for torrent in torrents:
-            if (label in torrent.get("labels", []) and user.get("id", "common") in torrent.get("labels", [])) or user.get("role", "user") == "admin":
+            if (torrent_id is None or torrent["id"] == torrent_id) and label in torrent.get("labels", []) and (user.get("id", "common") in torrent.get("labels", []) or user.get("role", "user") == "admin"):
                 status = get_torrent_status(torrent["status"])
                 total_size = torrent["totalSize"]
                 percent_done = torrent["percentDone"] * 100
@@ -115,9 +115,12 @@ def get_torrents(user, label=LABEL):
                 uploaded_ever = torrent["uploadedEver"]
                 added_date = torrent["addedDate"]
                 upload_ratio = round(torrent.get("uploadRatio", 0.0), 2)
+                # files = [{"name": f["name"], "size": f["length"]} for f in torrent.get("files", [])]
+                files = torrent.get("files", [])
 
                 filtered_torrents.append({
                     "id": torrent["id"],
+                    "labels": torrent.get("labels", []),
                     "name": torrent["name"],
                     "status": status,
                     "total_size": total_size,  # Size in bytes
@@ -125,6 +128,7 @@ def get_torrents(user, label=LABEL):
                     "downloaded_ever": downloaded_ever, # Bytes
                     "uploaded_ever": uploaded_ever, # Bytes
                     "added_date": added_date,
+                    "files": files,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 
@@ -132,7 +136,7 @@ def get_torrents(user, label=LABEL):
         return filtered_torrents
     else:
         print(f"Error getting torrent list: {response.status_code}")
-        return None
+        return []
 
 def get_torrent_status(status_code):  # Helper function to convert status code
     status_map = {

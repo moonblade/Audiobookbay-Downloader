@@ -3,6 +3,9 @@ JACKETT_API_URL:=$(shell cat secrets/jackett.json | jq -r '.JACKETT_API_URL')
 TRANSMISSION_URL:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_URL')
 TRANSMISSION_USER:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_USER')
 TRANSMISSION_PASS:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_PASS')
+BEETS_INPUT_PATH:=$(shell cat secrets/beets.json | jq -r '.BEETS_INPUT_PATH')
+BEETS_OUTPUT_PATH:=$(shell cat secrets/beets.json | jq -r '.BEETS_OUTPUT_PATH')
+BEETS_DIR:=$(shell cat secrets/beets.json | jq -r '.BEETS_DIR')
 ADMIN_ID:=$(shell od -x /dev/urandom | head -1 | awk '{OFS="-"; print $$2$$3,$$4,$$5,$$6,$$7$$8$$9}')
 .EXPORT_ALL_VARIABLES:
 

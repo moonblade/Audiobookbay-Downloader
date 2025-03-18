@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application
 COPY main.py .
 COPY audiobookbay.py .
+COPY beetsapi.py .
 COPY utils.py .
 COPY auth.py .
 COPY static/ static/

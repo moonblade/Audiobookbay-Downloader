@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
+from beetsapi import autoimport
 from pydantic import BaseModel
 from audiobookbay import delete_torrent, get_torrents, pause_torrent, play_torrent, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
@@ -246,3 +247,10 @@ def play_torrent_endpoint(
     except Exception as e:
         logger.error(f"Play torrent failed: {e}")
         raise HTTPException(status_code=500, detail=f"Play torrent failed: {e}")
+
+@app.post("/autoimport")
+def _autoimport():
+    """
+    Imports beets audible stuff to new directory.
+    """
+    autoimport()
