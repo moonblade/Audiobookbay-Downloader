@@ -1,7 +1,7 @@
 import os
 import requests
 
-from constants import BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
+from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
 from utils import custom_logger
 
 logger = custom_logger(__name__)
@@ -248,6 +248,10 @@ def play_torrent(torrent_id, user=None):
     else:
         logger.error(f"Error starting torrent {torrent_id}: {response.status_code} - {response.text}")
         return False
+
+def delete_old_torrents():
+    torrents = get_torrents(ADMIN_USER_DICT)
+    pass
 
 def delete_torrent(torrent_id, user=None, delete_data=True):
     """Deletes a torrent from Transmission.

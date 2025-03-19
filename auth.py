@@ -4,11 +4,8 @@ import base64
 import requests
 import uuid
 
-ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
-ADMIN_ID = os.getenv("ADMIN_ID", "e0617896-4560-193c-cc34-653683f99c35")
-DB_PATH = os.getenv("DB_PATH", "/tmp")
-# DB_PATH/users.json returns a json of type [{"username": "user1", "password": "cGFzc3dvcmQ=", "role": "user", "id": "userapikey"}]
+from constants import ADMIN_ID, ADMIN_PASS, ADMIN_USER, DB_PATH
+
 
 
 def get_users():
