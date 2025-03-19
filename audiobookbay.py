@@ -1,7 +1,8 @@
 import os
+import time
 import requests
 
-from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
+from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
 from utils import custom_logger
 
 logger = custom_logger(__name__)
@@ -251,7 +252,15 @@ def play_torrent(torrent_id, user=None):
 
 def delete_old_torrents():
     torrents = get_torrents(ADMIN_USER_DICT)
-    pass
+    torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and BEETS_COMPLETE_LABEL in torrent.get("labels") and BEETS_ERROR_LABEL not in torrent.get("labels"))]
+    for torrent in torrents:
+        added_time = torrent["added_date"]
+        current_time = time.time()
+        time_difference_days = (current_time - added_time) / (60 * 60 * 24)
+        if time_difference_days > DELETE_AFTER_DAYS:
+            if torrent["upload_ratio"] > 1.0:
+                delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=False)
+                logger.info(f"DELETED: {torrent['name']}")
 
 def delete_torrent(torrent_id, user=None, delete_data=True):
     """Deletes a torrent from Transmission.

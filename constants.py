@@ -18,3 +18,5 @@ ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
 ADMIN_ID = os.getenv("ADMIN_ID", "e0617896-4560-193c-cc34-653683f99c35")
 DB_PATH = os.getenv("DB_PATH", "/tmp")
 # DB_PATH/users.json returns a json of type [{"username": "user1", "password": "cGFzc3dvcmQ=", "role": "user", "id": "userapikey"}]
+
+DELETE_AFTER_DAYS = int(os.getenv("DELETE_AFTER_DAYS", 14))
