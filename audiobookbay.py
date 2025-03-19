@@ -1,15 +1,10 @@
 import os
 import requests
 
+from constants import BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
 from utils import custom_logger
 
 logger = custom_logger(__name__)
-JACKETT_API_URL = os.getenv("JACKETT_API_URL" "")
-JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
-TRANSMISSION_URL = os.getenv("TRANSMISSION_URL", "")
-TRANSMISSION_USER = os.getenv("TRANSMISSION_USER", "")
-TRANSMISSION_PASS = os.getenv("TRANSMISSION_PASS", "")
-LABEL = os.getenv("LABEL", "audiobook")
 
 def get_jackett_magnet(url):
     try:
@@ -128,6 +123,8 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 upload_ratio = round(torrent.get("uploadRatio", 0.0), 2)
                 # files = [{"name": f["name"], "size": f["length"]} for f in torrent.get("files", [])]
                 files = torrent.get("files", [])
+                imported = BEETS_COMPLETE_LABEL in torrent.get("labels", [])
+                importError = BEETS_ERROR_LABEL in torrent.get("labels", [])
 
                 filtered_torrents.append({
                     "id": torrent["id"],
@@ -140,6 +137,8 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "uploaded_ever": uploaded_ever, # Bytes
                     "added_date": added_date,
                     "files": files,
+                    "imported": imported,
+                    "importError": importError,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 

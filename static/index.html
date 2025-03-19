@@ -438,6 +438,9 @@
                 <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 <i class="fas fa-trash-alt"></i>
             </button>
+            <i x-show="torrent.importError" class="fas fa-exclamation-circle text-red-500 ml-2" title="Import Error"></i>
+            <i x-show="!torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500 ml-2" title="Not Imported"></i>
+            <i x-show="torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500 ml-2" title="Imported"></i>
             </div>
         </template>
         <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>

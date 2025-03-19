@@ -6,18 +6,13 @@ from beets import config, plugins
 from beets.autotag import Recommendation
 
 from audiobookbay import add_label_to_torrent, get_torrents
+from constants import ADMIN_USER, BEETS_COMPLETE_LABEL, BEETS_DIR, BEETS_ERROR_LABEL, BEETS_INPUT_PATH
 from utils import custom_logger
 
 logger = custom_logger(__name__)
 
 plugins.load_plugins(str(config["plugins"]).split(" "))
 # logger.info(config)
-
-BEETS_DIR = os.getenv("BEETSDIR", "/config")
-BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
-BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
-BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
-ADMIN_USER = {"role": "admin"}
 
 lib = Library(os.path.join(BEETS_DIR, "library.db"), directory=config["directory"].get())
 
@@ -117,4 +112,5 @@ def autoimport():
             add_label_to_torrent(torrent.get("id"), ADMIN_USER, BEETS_COMPLETE_LABEL)
         except Exception as e:
             logger.exception(f"Import failed: {e}")
+            add_label_to_torrent(torrent.get("id"), ADMIN_USER, BEETS_ERROR_LABEL)
             continue
