@@ -10,14 +10,16 @@ from utils import custom_logger
 
 logger = custom_logger(__name__)
 
-config.read()
 plugins.load_plugins(str(config["plugins"]).split(" "))
+# logger.info(config)
 
 BEETS_DIR = os.getenv("BEETSDIR", "/config")
 BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
-BEETS_OUTPUT_PATH = os.getenv("BEETS_OUTPUT_PATH", "/beetsoutput")
+BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
+BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
 ADMIN_USER = {"role": "admin"}
-lib = Library(os.path.join(BEETS_DIR, "library.db"))
+
+lib = Library(os.path.join(BEETS_DIR, "library.db"), directory=config["directory"].get())
 
 class ProgrammaticImportSession(importer.ImportSession):
     def summary_judgement(self, rec):
@@ -58,15 +60,15 @@ class ProgrammaticImportSession(importer.ImportSession):
         return action
 
     def show_change(self, cur_artist, cur_album, match):
-        print(cur_artist, cur_album, match)
+        # print(cur_artist, cur_album, match)
+        pass
 
     def choose_match(self, task):
         results = plugins.send(
             "import_task_before_choice", session=self, task=task
         )
-        actions = [action for action in results if action]
+        # actions = [action for action in results if action]
         action = self.summary_judgement(task.rec)
-        logger.info(f"Actions: {actions}")
         if action == importer.action.APPLY:
             match = task.candidates[0]
             self.show_change(task.cur_artist, task.cur_album, match)
@@ -95,7 +97,7 @@ def getFolders(torrent):
 
 def autoimport():
     torrents = get_torrents(ADMIN_USER)
-    torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and "beets" not in torrent.get("labels"))]
+    torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and BEETS_COMPLETE_LABEL not in torrent.get("labels") and BEETS_ERROR_LABEL not in torrent.get("labels"))]
     if not torrents:
         logger.warn("No torrents found")
         return
@@ -112,7 +114,7 @@ def autoimport():
                 query=None
             )
             session.run()
-            # add_label_to_torrent(torrent.get("id"), ADMIN_USER, "beets")
+            add_label_to_torrent(torrent.get("id"), ADMIN_USER, BEETS_COMPLETE_LABEL)
         except Exception as e:
             logger.exception(f"Import failed: {e}")
             continue
