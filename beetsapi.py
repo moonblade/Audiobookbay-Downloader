@@ -13,7 +13,7 @@ logger = custom_logger(__name__)
 config.read()
 plugins.load_plugins(str(config["plugins"]).split(" "))
 
-BEETS_DIR = os.getenv("BEETS_DIR", "/config")
+BEETS_DIR = os.getenv("BEETSDIR", "/config")
 BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
 BEETS_OUTPUT_PATH = os.getenv("BEETS_OUTPUT_PATH", "/beetsoutput")
 ADMIN_USER = {"role": "admin"}
@@ -58,10 +58,7 @@ class ProgrammaticImportSession(importer.ImportSession):
         return action
 
     def show_change(self, cur_artist, cur_album, match):
-        change = AlbumChange(
-            cur_artist=cur_artist, cur_album=cur_album, match=match
-        )
-        logger.info(change)
+        print(cur_artist, cur_album, match)
 
     def choose_match(self, task):
         results = plugins.send(
@@ -107,6 +104,7 @@ def autoimport():
         try:
             logger.info(f"Processing {torrent['name']}")
             folders = getFolders(torrent)
+            #TODO: its going to music folder, see why and change folderpath
             session = ProgrammaticImportSession(
                 lib,
                 loghandler=logger,
@@ -116,5 +114,5 @@ def autoimport():
             session.run()
             # add_label_to_torrent(torrent.get("id"), ADMIN_USER, "beets")
         except Exception as e:
-            logger.error(f"Import failed: {e}")
+            logger.exception(f"Import failed: {e}")
             continue
