@@ -56,7 +56,8 @@ def add_to_transmission(torrent_url, user, label=LABEL):
           torrent_id = response.json()['arguments']['torrent-added']['id']
           add_label_to_torrent(torrent_id, user, label) # Add the label after adding the torrent
           return True
-        except (KeyError, TypeError): # Handle cases where torrent-added might not be in the response
+        except (KeyError, TypeError) as e: # Handle cases where torrent-added might not be in the response
+          logger.exception(f"Error adding torrent {e}")
           print("Warning: Could not retrieve torrent ID from response. Label may not be applied.")
           return True # Torrent was added, but label might have failed. You might want to return False here instead.
 
@@ -68,16 +69,20 @@ def add_label_to_torrent(torrent_id, user=None, label=LABEL):
 
     if not session_id:
         print("Failed to get Transmission session ID")
-        return []
-
-    torrents = get_torrents(user, torrent_id=torrent_id)
-    if not torrents:
-        print(f"Failed to retrieve torrent with ID {torrent_id}")
         return False
 
-    current_labels = torrents[0].get("labels", [])
+    new_labels = [label]
+    try:
+        torrents = get_torrents(user, torrent_id=torrent_id)
+        if not torrents:
+            logger.warn(f"Failed to retrieve torrent with ID {torrent_id}")
 
-    new_labels = list(set(current_labels + [label]))
+        current_labels = torrents[0].get("labels", [])
+
+        new_labels = list(set(current_labels + [label]))
+    except Exception as e:
+        logger.warn(f"Error getting existing torrent labels: {e}")
+
     if user:
         new_labels = list(set(new_labels + [user.get("id", "common")]))
 
