@@ -426,7 +426,7 @@ function app() {
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-bold text-sm sm:text-base flex-1 break-words pr-2" x-text="torrent.name"></h3>
             <div class="flex items-center">
-              <span class="text-xs px-2 py-1 rounded" :class="torrent.status === 'Seeding' ? 'bg-green-800 text-green-100' : 'bg-gray-600 text-gray-300'" x-text="torrent.status"></span>
+              <span class="text-xs px-2 py-1 rounded bg-gray-600 text-gray-300" x-text="torrent.status"></span>
               <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 ml-2" title="Import Error"></i>
               <i x-show="torrent.status === 'Seeding' && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500 ml-2" title="Not Imported"></i>
               <i x-show="torrent.status === 'Seeding' && torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500 ml-2" title="Imported"></i>
@@ -454,10 +454,6 @@ function app() {
                   <span x-show="torrent.upload_ratio > 0" class="ml-1">Ratio: </span>
                   <span x-show="torrent.upload_ratio > 0" class="ml-1" x-text="torrent.upload_ratio.toFixed(2)"></span>
                 </div>
-                <!-- <div x-show="torrent.upload_ratio > 0" class="flex items-center"> -->
-                <!--   <span class="text-green-400">Ratio: </span> -->
-                <!--   <span class="ml-1" x-text="torrent.upload_ratio.toFixed(2)"></span> -->
-                <!-- </div> -->
               </div>
             </div>
             
@@ -465,13 +461,13 @@ function app() {
             <div class="flex items-center gap-2">
               <button @click="toggleTorrent(torrent.id, torrent.status)" 
                       :disabled="deletingTorrent === torrent.id"
-                      class="bg-yellow-600 text-white p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
+                      class="bg-gray-600 text-gray-300 p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
                 <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>
               </button>
               
               <button @click="deleteTorrent(torrent.id)" 
                       :disabled="deletingTorrent === torrent.id"
-                      class="bg-red-600 text-white p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
+                      class="bg-gray-600 text-gray-300 p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
                 <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 <i x-show="deletingTorrent !== torrent.id" class="fas fa-trash-alt"></i>
               </button>
