@@ -99,9 +99,10 @@ def autoimport():
     logger.info(f"Found {len(torrents)} torrents")
     for torrent in torrents:
         try:
+            if torrent["status"] != "Seeding":
+                continue
             logger.info(f"Processing {torrent['name']}")
             folders = getFolders(torrent)
-            #TODO: its going to music folder, see why and change folderpath
             session = ProgrammaticImportSession(
                 lib,
                 loghandler=logger,
