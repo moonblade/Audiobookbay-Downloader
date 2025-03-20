@@ -426,17 +426,15 @@ function app() {
           <div class="flex justify-between items-start mb-2">
             <h3 class="font-bold text-sm sm:text-base flex-1 break-words pr-2" x-text="torrent.name"></h3>
             <div class="flex items-center">
-              <span class="text-xs px-2 py-1 rounded" 
-                    :class="torrent.status === 'Seeding' ? 'bg-green-800 text-green-100' : 'bg-gray-600 text-gray-300'"
-                    x-text="torrent.status"></span>
-              <i x-show="torrent.importError" class="fas fa-exclamation-circle text-red-500 ml-2" title="Import Error"></i>
-              <i x-show="!torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500 ml-2" title="Not Imported"></i>
-              <i x-show="torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500 ml-2" title="Imported"></i>
+              <span class="text-xs px-2 py-1 rounded" :class="torrent.status === 'Seeding' ? 'bg-green-800 text-green-100' : 'bg-gray-600 text-gray-300'" x-text="torrent.status"></span>
+              <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 ml-2" title="Import Error"></i>
+              <i x-show="torrent.status === 'Seeding' && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500 ml-2" title="Not Imported"></i>
+              <i x-show="torrent.status === 'Seeding' && torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500 ml-2" title="Imported"></i>
             </div>
           </div>
           
           <!-- Progress Bar -->
-          <div class="h-3 w-full bg-gray-600 rounded-full overflow-hidden mb-2">
+          <div class="h-3 w-full bg-gray-600 rounded-full overflow-hidden mb-2" :style="{backgroundColor: torrent.status === 'Seeding' ? '#4ade80' : '#e2e8f0'}">
             <div class="h-full rounded-full" 
                  :style="{
                    width: torrent.status === 'Stopped' ? torrent.percent_done + '%' : (torrent.upload_ratio > 0 ? torrent.upload_ratio * 100 + '%' : torrent.percent_done + '%'),
@@ -444,39 +442,40 @@ function app() {
                  }"></div>
           </div>
           
-          <!-- Info Row -->
-          <div class="flex justify-between items-center text-xs text-gray-400 mb-3">
-            <div>
-              <span x-show="torrent.status !== 'Seeding'" x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2) + ' MB / ' + (torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span>
-              <span x-show="torrent.status === 'Seeding'" x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span>
+          <!-- Content & Action Row -->
+          <div class="flex justify-between items-center">
+            <!-- Info Column -->
+            <div class="flex-1">
+              <div class="flex flex-col text-xs text-gray-400">
+                <div>
+                  <span x-show="torrent.status !== 'Seeding'" x-text="(torrent.downloaded_ever / 1024 / 1024).toFixed(2) + ' MB / ' + (torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span>
+                  <span x-show="torrent.status === 'Seeding'" x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span>
+                  <span x-show="torrent.upload_ratio > 0" class="ml-1">|</span>
+                  <span x-show="torrent.upload_ratio > 0" class="ml-1">Ratio: </span>
+                  <span x-show="torrent.upload_ratio > 0" class="ml-1" x-text="torrent.upload_ratio.toFixed(2)"></span>
+                </div>
+                <!-- <div x-show="torrent.upload_ratio > 0" class="flex items-center"> -->
+                <!--   <span class="text-green-400">Ratio: </span> -->
+                <!--   <span class="ml-1" x-text="torrent.upload_ratio.toFixed(2)"></span> -->
+                <!-- </div> -->
+              </div>
             </div>
-            <div x-show="torrent.upload_ratio > 0" class="flex items-center">
-              <span class="text-green-400">Ratio: </span>
-              <span class="ml-1" x-text="torrent.upload_ratio.toFixed(2)"></span>
+            
+            <!-- Action Buttons -->
+            <div class="flex items-center gap-2">
+              <button @click="toggleTorrent(torrent.id, torrent.status)" 
+                      :disabled="deletingTorrent === torrent.id"
+                      class="bg-yellow-600 text-white p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
+                <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>
+              </button>
+              
+              <button @click="deleteTorrent(torrent.id)" 
+                      :disabled="deletingTorrent === torrent.id"
+                      class="bg-red-600 text-white p-2 rounded flex items-center justify-center disabled:opacity-50 h-6 w-14">
+                <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                <i x-show="deletingTorrent !== torrent.id" class="fas fa-trash-alt"></i>
+              </button>
             </div>
-          </div>
-          
-          <!-- Action Buttons -->
-          <div class="flex justify-between gap-2">
-            <button @click="toggleTorrent(torrent.id, torrent.status)" 
-                    :disabled="deletingTorrent === torrent.id"
-                    class="flex-1 bg-yellow-600 text-white py-2 rounded flex items-center justify-center disabled:opacity-50">
-              <i :class="torrent.status === 'Stopped' ? 'fas fa-play mr-1' : 'fas fa-pause mr-1'"></i>
-              <span x-text="torrent.status === 'Stopped' ? 'Start' : 'Pause'"></span>
-            </button>
-            
-            <button @click="deleteTorrent(torrent.id)" 
-                    :disabled="deletingTorrent === torrent.id"
-                    class="flex-1 bg-red-600 text-white py-2 rounded flex items-center justify-center disabled:opacity-50">
-              <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-1"></span>
-              <i x-show="deletingTorrent !== torrent.id" class="fas fa-trash-alt mr-1"></i>
-              <span>Delete</span>
-            </button>
-            
-            <button class="flex-1 bg-blue-600 text-white py-2 rounded flex items-center justify-center">
-              <i class="fas fa-info-circle mr-1"></i>
-              <span>Info</span>
-            </button>
           </div>
         </div>
       </template>
