@@ -109,7 +109,20 @@ def get_torrents(user, label=LABEL, torrent_id=None):
     payload = {
         "method": "torrent-get",
         "arguments": {
-            "fields": ["id", "name", "status", "labels", "totalSize", "percentDone", "downloadedEver", "uploadedEver", "addedDate", "uploadRatio", "files"]
+            "fields": [
+                "id",
+                "name",
+                "status",
+                "labels",
+                "totalSize",
+                "percentDone",
+                "downloadedEver",
+                "uploadedEver",
+                "addedDate",
+                "uploadRatio",
+                "files",
+                "eta"
+            ]
         }
     }
     headers = {"X-Transmission-Session-Id": session_id}
@@ -127,6 +140,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 downloaded_ever = torrent["downloadedEver"]
                 uploaded_ever = torrent["uploadedEver"]
                 added_date = torrent["addedDate"]
+                eta = torrent.get("eta", -1)
                 upload_ratio = round(torrent.get("uploadRatio", 0.0), 2)
                 # files = [{"name": f["name"], "size": f["length"]} for f in torrent.get("files", [])]
                 files = torrent.get("files", [])
@@ -146,6 +160,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "files": files,
                     "imported": imported,
                     "importError": importError,
+                    "eta": eta,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 
