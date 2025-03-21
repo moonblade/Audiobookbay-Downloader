@@ -615,6 +615,7 @@ function app() {
                         <img :src="candidate.cover" alt="Cover" class="w-16 h-16 object-cover rounded" x-show="candidate.cover">
                         <div>
                             <p class="font-bold" x-text="candidate.album"></p>
+                            <p class="text-sm text-gray-400" x-text="candidate.match"></p>
                             <p class="text-sm text-gray-400" x-text="candidate.artist"></p>
                             <p class="text-sm text-gray-400" x-text="candidate.length"></p>
                         </div>
