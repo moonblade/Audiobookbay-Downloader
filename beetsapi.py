@@ -147,7 +147,6 @@ def getFolders(torrent):
 
 def autoimport():
     torrents = get_torrents(ADMIN_USER_DICT)
-    # torrents = [torrent for torrent in torrents if "Perfect Run" in torrent.get("name")]
     torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and BEETS_COMPLETE_LABEL not in torrent.get("labels") and BEETS_ERROR_LABEL not in torrent.get("labels"))]
     if not torrents:
         logger.warn("No torrents found")
