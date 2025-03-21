@@ -9,7 +9,7 @@ from beets.autotag import Recommendation
 
 from audiobookbay import add_label_to_torrent, get_torrents, remove_label_from_torrent
 from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_DIR, BEETS_ERROR_LABEL, BEETS_INPUT_PATH
-from db import get_candidates, save_candidates
+from db import get_candidates, get_selected, save_candidates
 from utils import custom_logger
 
 logger = custom_logger(__name__)
@@ -96,15 +96,20 @@ class ProgrammaticImportSession(importer.ImportSession):
         return candidates
 
     def get_saved_choice(self, task):
+        selected_choice = get_selected(self.torrent.get("hash_string"))
+        if selected_choice:
+            for candidate in task.candidates:
+                if candidate.info.album_id == selected_choice:
+                    logger.info(f"Using saved choice: {candidate.info.artist} - {candidate.info.album}")
+                    return candidate
+        if selected_choice == "asis":
+            logger.info("Using as-is.")
+            return importer.action.ASIS
         return None
 
     def save_candidates(self, task):
-        saved_candidates = get_candidates(self.torrent.get("id"))
-        if saved_candidates:
-            return
-
         candidates = self.transform_candidates(task)
-        save_candidates(self.torrent.get("id"), candidates)
+        save_candidates(self.torrent.get("hash_string"), candidates)
 
     def choose_match(self, task):
         plugins.send("import_task_before_choice", session=self, task=task)
@@ -122,7 +127,6 @@ class ProgrammaticImportSession(importer.ImportSession):
             return importer.action.ASIS
 
         self.save_candidates(task)
-        # choices = self._get_choices(task)
 
     def choose_item(self, task):
         return
@@ -134,14 +138,6 @@ class ProgrammaticImportSession(importer.ImportSession):
 
     def should_resume(self, path):
         return
-
-    def _get_choices(self, task):
-        choices = [
-            PromptChoice("a", "Apply", None),
-            PromptChoice("u", "Use as-is", lambda s, t: importer.action.ASIS),
-        ]
-        # We dont particularly care for the choices given by the plugin, so ignoring it
-        return choices
 
 def getFolders(torrent):
     folders = set()

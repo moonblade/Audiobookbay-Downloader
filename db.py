@@ -38,5 +38,8 @@ def save_candidates(torrent_id, candidates):
     else:
         beetsdb.insert({"torrent_id": torrent_id, "candidates": candidates})
 
+def delete_candidates(torrent_id):
+    beetsdb.remove(Query().torrent_id == torrent_id)
+
 def select_candidate(torrent_id, candidate_id):
     beetsdb.update({"selected": candidate_id}, Query().torrent_id == torrent_id)

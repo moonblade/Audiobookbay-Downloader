@@ -378,6 +378,48 @@ function app() {
             console.error(`Error toggling torrent:`, error);
         }
     },
+
+    showCandidateDialog: false,
+    selectedCandidate: null,
+    selectedTorrent: null,
+    showCandidates(torrent) {
+        this.selectedCandidate = null;
+        this.candidates = torrent.candidates;
+        this.selectedTorrent = torrent;
+        this.showCandidateDialog = true;
+    },
+    async autoimport() {
+        fetch('/autoimport', {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {throw new Error(err.detail || 'Failed to autoimport')});
+            }
+            this.getTorrentStatus();
+        })
+        .catch(error => {
+            console.error(error);
+        });
+    },
+    async selectCandidate(candidate) {
+        try {
+            const response = await fetch(`/selectCandidate/${this.selectedTorrent.hash_string}/${candidate.id}`, {
+                method: 'POST'
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to select candidate');
+            } else {
+                this.autoimport();
+            }
+        } catch (error) {
+            console.error('Error selecting candidate:', error);
+        } finally {
+            this.showCandidateDialog = false;
+        }
+    }
   }
 }
 </script>
@@ -443,7 +485,7 @@ function app() {
             <!-- Status pill more compact -->
             <div class="flex items-center gap-2">
               <!-- <span class="text-xs px-2 py-1 rounded bg-gray-600 text-gray-300" x-text="torrent.status"></span> -->
-              <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500" title="Import Error"></i>
+              <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
               <i x-show="torrent.status === 'Seeding' && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500" title="Not Imported"></i>
               <i x-show="torrent.status === 'Seeding' && torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500" title="Imported"></i>
             </div>
@@ -562,6 +604,27 @@ function app() {
         <p x-show="loadingUsers" class="text-center text-gray-400">Loading users...</p>
     </div>
 
+<!-- Candidate Selection Dialog -->
+<template x-if="showCandidateDialog">
+    <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4">
+        <div class="bg-gray-700 p-6 rounded-lg w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Select a Candidate</h3>
+            <div class="space-y-4">
+                <template x-for="candidate in candidates" :key="candidate.id">
+                    <div class="flex items-center gap-4 p-4 bg-gray-600 rounded cursor-pointer hover:bg-gray-500" @click="selectCandidate(candidate)">
+                        <img :src="candidate.cover" alt="Cover" class="w-16 h-16 object-cover rounded" x-show="candidate.cover">
+                        <div>
+                            <p class="font-bold" x-text="candidate.album"></p>
+                            <p class="text-sm text-gray-400" x-text="candidate.artist"></p>
+                            <p class="text-sm text-gray-400" x-text="candidate.length"></p>
+                        </div>
+                    </div>
+                </template>
+            </div>
+            <button @click="showCandidateDialog = false" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Close</button>
+        </div>
+    </div>
+</template>
 </body>
 </html>
 

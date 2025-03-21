@@ -156,7 +156,8 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 "addedDate",
                 "uploadRatio",
                 "files",
-                "eta"
+                "eta",
+                "hashString"
             ]
         }
     }
@@ -176,6 +177,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 uploaded_ever = torrent["uploadedEver"]
                 added_date = torrent["addedDate"]
                 eta = torrent.get("eta", -1)
+                hash_string = torrent.get("hashString", "")
                 upload_ratio = round(torrent.get("uploadRatio", 0.0), 2)
                 # files = [{"name": f["name"], "size": f["length"]} for f in torrent.get("files", [])]
                 files = torrent.get("files", [])
@@ -183,7 +185,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 importError = BEETS_ERROR_LABEL in torrent.get("labels", [])
                 candidates = []
                 if importError:
-                    candidates = get_candidates(torrent["id"])
+                    candidates = get_candidates(hash_string)
 
                 filtered_torrents.append({
                     "id": torrent["id"],
@@ -200,6 +202,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "importError": importError,
                     "eta": eta,
                     "candidates": candidates,
+                    "hash_string": hash_string,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 
