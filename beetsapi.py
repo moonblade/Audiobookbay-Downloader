@@ -7,7 +7,7 @@ from beets.library import Library
 from beets import config, plugins
 from beets.autotag import Recommendation
 
-from audiobookbay import add_label_to_torrent, get_torrents
+from audiobookbay import add_label_to_torrent, get_torrents, remove_label_from_torrent
 from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_DIR, BEETS_ERROR_LABEL, BEETS_INPUT_PATH
 from db import get_candidates, save_candidates
 from utils import custom_logger
@@ -118,6 +118,9 @@ class ProgrammaticImportSession(importer.ImportSession):
         if saved_choice is not None:
             return saved_choice
 
+        if len(task.candidates) == 0:
+            return importer.action.ASIS
+
         self.save_candidates(task)
         # choices = self._get_choices(task)
 
@@ -169,6 +172,8 @@ def autoimport():
             )
             session.run()
             add_label_to_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)
+            remove_label_from_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_ERROR_LABEL)
         except Exception as e:
             logger.exception(f"Import failed: {e}")
             add_label_to_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_ERROR_LABEL)
+            remove_label_from_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)
