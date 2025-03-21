@@ -209,7 +209,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
             if (torrent_id is None or torrent["id"] == torrent_id) and label in torrent.get("labels", []) and (user.get("id", "common") in torrent.get("labels", []) or user.get("role", "user") == "admin"):
                 status = get_torrent_status(torrent["status"])
                 total_size = torrent["totalSize"]
-                name = torrent["name"].replace("_", " ")
+                name = torrent["name"].replace("_", " ").replace("+", " ")
                 percent_done = torrent["percentDone"] * 100
                 downloaded_ever = torrent["downloadedEver"]
                 uploaded_ever = torrent["uploadedEver"]
