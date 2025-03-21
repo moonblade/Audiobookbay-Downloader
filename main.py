@@ -5,7 +5,7 @@ from beetsapi import autoimport
 from constants import BEETS_ERROR_LABEL
 from db import select_candidate
 from pydantic import BaseModel
-from audiobookbay import delete_old_torrents, delete_torrent, get_torrents, pause_torrent, play_torrent, remove_label_from_torrent, search_audiobook, add_to_transmission
+from audiobookbay import delete_old_torrents, delete_torrent, get_torrents, pause_torrent, play_torrent, remove_label_from_torrent, remove_label_from_torrent_with_hash, search_audiobook, add_to_transmission
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -250,14 +250,14 @@ def play_torrent_endpoint(
         logger.error(f"Play torrent failed: {e}")
         raise HTTPException(status_code=500, detail=f"Play torrent failed: {e}")
 
-@app.post("/selectCandidate/{hash_string}/{torrent_id}/{candidate_id}")
-def _select_candidate(hash_string: str, torrent_id: str, candidate_id: str, user: dict = Depends(authenticate)):
+@app.post("/selectCandidate/{hash_string}/{candidate_id}")
+def _select_candidate(hash_string: str, candidate_id: str, user: dict = Depends(authenticate)):
     """
     Selects a candidate for a torrent.
     """
     try:
         select_candidate(hash_string, candidate_id)
-        remove_label_from_torrent(torrent_id, user, BEETS_ERROR_LABEL)
+        remove_label_from_torrent_with_hash(hash_string, user, BEETS_ERROR_LABEL)
         return {"status": "ok", "message": f"Candidate {candidate_id} selected for torrent {hash_string}"}
     except Exception as e:
         logger.error(f"Select candidate failed: {e}")

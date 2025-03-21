@@ -65,6 +65,44 @@ def add_to_transmission(torrent_url, user, label=LABEL):
 
     return False
 
+def remove_label_from_torrent_with_hash(hash_string, user=None, label=LABEL):
+    session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
+    session_id = session_response.headers.get("X-Transmission-Session-Id")
+
+    if not session_id:
+        print("Failed to get Transmission session ID")
+        return False
+
+    new_labels = []
+    id = None
+    try:
+        torrents = get_torrents(user)
+        if not torrents:
+            logger.warn(f"Failed to retrieve torrent with hash {hash_string}")
+
+        torrent = [torrent for torrent in torrents if torrent.get("hash_string") == hash_string][0]
+        id = torrent.get("id")
+        current_labels = torrent.get("labels", [])
+
+        new_labels = list(set(current_labels) - set([label]))
+    except Exception as e:
+        logger.warn(f"Error getting existing torrent labels: {e}")
+        return
+
+    if not new_labels:
+        return
+
+    payload = {
+        "method": "torrent-set",
+        "arguments": {
+            "ids": [id],
+            "labels": new_labels
+        }
+    }
+    headers = {"X-Transmission-Session-Id": session_id}
+    response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
+    return response.status_code == 200
+
 def remove_label_from_torrent(torrent_id, user=None, label=LABEL):
     session_response = requests.get(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS))
     session_id = session_response.headers.get("X-Transmission-Session-Id")

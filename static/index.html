@@ -404,7 +404,7 @@ function app() {
     },
     async selectCandidate(candidate) {
         try {
-            const response = await fetch(`/selectCandidate/${this.selectedTorrent.hash_string}/${this.selectedTorrent.id}/${candidate.id}`, {
+            const response = await fetch(`/selectCandidate/${this.selectedTorrent.hash_string}/${candidate.id}`, {
                 method: 'POST'
             });
 
