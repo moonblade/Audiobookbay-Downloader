@@ -3,6 +3,7 @@ import time
 import requests
 
 from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
+from db import get_candidates
 from utils import custom_logger
 
 logger = custom_logger(__name__)
@@ -146,6 +147,9 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 files = torrent.get("files", [])
                 imported = BEETS_COMPLETE_LABEL in torrent.get("labels", [])
                 importError = BEETS_ERROR_LABEL in torrent.get("labels", [])
+                candidates = []
+                if importError:
+                    candidates = get_candidates(torrent["id"])
 
                 filtered_torrents.append({
                     "id": torrent["id"],
@@ -161,6 +165,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "imported": imported,
                     "importError": importError,
                     "eta": eta,
+                    "candidates": candidates,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 

@@ -465,7 +465,7 @@ function app() {
               <div>Size: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span></div>
               <div x-show="torrent.upload_ratio > 0">Ratio: <span x-text="torrent.upload_ratio.toFixed(2)"></span></div>
               <div x-show="torrent.percent_done > 0  && torrent.percent_done < 100">Progress: <span x-text="(torrent.percent_done).toFixed(1) + '%'"></span></div>
-              <div x-show="torrent.status === 'Downloading'">ETA: <span x-text="formatEta(torrent.eta)"></span></div>
+              <div x-show="torrent.status === 'Downloading' && torrent.eta">ETA: <span x-text="formatEta(torrent.eta)"></span></div>
             </div>
             
             <!-- Action Buttons - More compact and better aligned -->

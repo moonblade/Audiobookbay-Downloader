@@ -7,3 +7,4 @@ itsdangerous==2.2.0
 beets==2.2.0
 beets-audible==1.0.1
 beets-copyartifacts3==0.1.5
+tinydb==4.8.2
