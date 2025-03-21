@@ -85,6 +85,14 @@ class ProgrammaticImportSession(importer.ImportSession):
                 "length": time_string,
             }
             candidates.append(candidateObject)
+        candidates.append({
+            "match": 0,
+            "artist": "",
+            "album": "Use as is",
+            "cover": "",
+            "id": "asis",
+            "length": "",
+        })
         return candidates
 
     def get_saved_choice(self, task):
