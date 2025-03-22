@@ -36,7 +36,7 @@ services:
       - 51413:51413/udp
     restart: unless-stopped
   audiobookbay-downloader:
-    image: ghcr.io/moonblade/audiobookbay-downloader:ts_1742615273
+    image: ghcr.io/moonblade/audiobookbay-downloader:ts_1742643845
     container_name: audiobookbay-downloader
     ports:
       - 9000:9000
