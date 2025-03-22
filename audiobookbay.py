@@ -2,7 +2,7 @@ import os
 import time
 import requests
 
-from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
+from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, STRICTLY_DELETE_AFTER_DAYS, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
 from db import get_candidates
 from utils import custom_logger
 
@@ -353,10 +353,12 @@ def delete_old_torrents():
         added_time = torrent["added_date"]
         current_time = time.time()
         time_difference_days = (current_time - added_time) / (60 * 60 * 24)
-        if time_difference_days > DELETE_AFTER_DAYS:
-            if torrent["upload_ratio"] > 1.0:
-                delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=False)
-                logger.info(f"DELETED: {torrent['name']}")
+        if time_difference_days > DELETE_AFTER_DAYS and torrent["upload_ratio"] > 1.0:
+            delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=False)
+            logger.info(f"DELETED: {torrent['name']}")
+        if time_difference_days > STRICTLY_DELETE_AFTER_DAYS:
+            delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=True)
+            logger.info(f"DELETED: {torrent['name']}")
 
 def delete_torrent(torrent_id, user=None, delete_data=True):
     """Deletes a torrent from Transmission.

@@ -20,3 +20,4 @@ DB_PATH = os.getenv("DB_PATH", "/tmp")
 # DB_PATH/users.json returns a json of type [{"username": "user1", "password": "cGFzc3dvcmQ=", "role": "user", "id": "userapikey"}]
 
 DELETE_AFTER_DAYS = int(os.getenv("DELETE_AFTER_DAYS", 14))
+STRICTLY_DELETE_AFTER_DAYS = int(os.getenv("STRICTLY_DELETE_AFTER_DAYS", 30))
