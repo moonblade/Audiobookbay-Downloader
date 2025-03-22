@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - ./jackett:/config
+      - ./audiobookbay.json:/config/Jackett/Indexers/audiobookbay.json
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - USER= #optional
+      - PASS= #optional
+    volumes:
+      - ./transmission/config:/config
+      - ./transmission:/downloads
+    ports:
+      - 9091:9091
+      - 51413:51413
+      - 51413:51413/udp
+    restart: unless-stopped
+

@@ -22,3 +22,7 @@ freeze:
 
 build:
 	docker build -t abb .
+
+.PHONY: example
+example:
+	cd example && ./start.sh

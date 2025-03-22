@@ -25,3 +25,26 @@ TRANSMISSION_PASS=pass                                                          
 
 ![](https://i.imgur.com/ccUBle0.png)
 
+
+### Docker compose deployment
+
+```yaml
+version: '3.8'
+
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - AUTO_UPDATE=true
+      - RUN_OPTS= --ApiKey=asdf
+    volumes:
+      - /tmp/config:/config
+      - /tmp:/downloads
+    ports:
+      - 9117:9117
+    restart: unless-stopped
+```
