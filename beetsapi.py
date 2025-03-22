@@ -14,7 +14,7 @@ from utils import custom_logger
 
 logger = custom_logger(__name__)
 
-if str(config["plugins"]).split(" "):
+if config["plugins"]:
     plugins.load_plugins(str(config["plugins"]).split(" "))
     lib = Library(os.path.join(BEETS_DIR, "library.db"), directory=config["directory"].get())
 
