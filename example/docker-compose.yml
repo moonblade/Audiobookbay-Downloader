@@ -5,13 +5,15 @@ services:
     image: lscr.io/linuxserver/jackett:latest
     container_name: jackett
     environment:
-      - PUID=1000
-      - PGID=1000
+      # - PUID=1000
+      # - PGID=1000
       - TZ=Etc/UTC
       - AUTO_UPDATE=true
+    user: 1000:1000
     volumes:
       - ./jackett:/config
-      - ./audiobookbay.json:/config/Jackett/Indexers/audiobookbay.json
+      - ./audiobookbay.json:/config/audiobookbay.json
+      - ./copy-audiobookbay.sh:/custom-cont-init.d/copy-audiobookbay.sh
     ports:
       - 9117:9117
     restart: unless-stopped
@@ -19,11 +21,12 @@ services:
     image: lscr.io/linuxserver/transmission:latest
     container_name: transmission
     environment:
-      - PUID=1000
-      - PGID=1000
+      # - PUID=1000
+      # - PGID=1000
       - TZ=Etc/UTC
       - USER= #optional
       - PASS= #optional
+    user: 1000:1000
     volumes:
       - ./transmission/config:/config
       - ./transmission:/downloads
@@ -32,4 +35,18 @@ services:
       - 51413:51413
       - 51413:51413/udp
     restart: unless-stopped
+  audiobookbay-downloader:
+    image: ghcr.io/moonblade/audiobookbay-downloader:ts_1742615273
+    container_name: audiobookbay-downloader
+    ports:
+      - 9000:9000
+    environment:
+      - JACKETT_API_KEY= #required
+      - ADMIN_PASS=password
+      - TRANSMISSION_USER= #optional
+      - TRANSMISSION_PASS= #optional
+      - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results/
+      - TRANSMISSION_URL=http://transmission:9091/transmission/rpc
+      # - BEETS_INPUT_PATH: /downloads
+      # - BEETSDIR: /config
 
