@@ -5,6 +5,7 @@ TRANSMISSION_USER:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_
 TRANSMISSION_PASS:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_PASS')
 BEETS_INPUT_PATH:=$(shell cat secrets/beets.json | jq -r '.BEETS_INPUT_PATH')
 BEETSDIR:=$(shell cat secrets/beets.json | jq -r '.BEETSDIR')
+USE_BEETS_IMPORT:=$(shell cat secrets/beets.json | jq -r '.USE_BEETS_IMPORT')
 ADMIN_ID:=dummy
 .EXPORT_ALL_VARIABLES:
 

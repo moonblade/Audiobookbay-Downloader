@@ -483,7 +483,7 @@ function app() {
               <h3 class="font-bold text-sm sm:text-base break-words pr-2" x-text="torrent.name"></h3>
             </div>
             <!-- Status pill more compact -->
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" x-show="torrent.use_beets_import">
               <!-- <span class="text-xs px-2 py-1 rounded bg-gray-600 text-gray-300" x-text="torrent.status"></span> -->
               <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
               <i x-show="torrent.status === 'Seeding' && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500" title="Not Imported"></i>
@@ -534,7 +534,7 @@ function app() {
       
       <!-- Delete Confirmation Modal -->
       <template x-if="confirmDelete">
-        <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4">
+    <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4" @click.self="showCandidateDialog = false">
           <div class="bg-gray-700 p-6 rounded-lg w-full max-w-sm">
             <h3 class="text-xl font-bold mb-4">Confirm Delete</h3>
             <p>Are you sure you want to delete this torrent and its data?</p>
@@ -607,7 +607,7 @@ function app() {
 <!-- Candidate Selection Dialog -->
 <template x-if="showCandidateDialog">
     <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4">
-        <div class="bg-gray-700 p-6 rounded-lg w-full max-w-md">
+        <div class="bg-gray-700 p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
             <h3 class="text-xl font-bold mb-4">Select a Candidate</h3>
             <div class="space-y-4">
                 <template x-for="candidate in candidates" :key="candidate.id">
