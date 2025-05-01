@@ -2,3 +2,5 @@ abb.py
 venv
 __pycache__
 temp
+example/jackett
+example/transmission

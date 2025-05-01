@@ -2,7 +2,7 @@ import os
 import time
 import requests
 
-from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, STRICTLY_DELETE_AFTER_DAYS, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER
+from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, STRICTLY_DELETE_AFTER_DAYS, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT
 from db import get_candidates
 from utils import custom_logger
 
@@ -236,6 +236,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "uploaded_ever": uploaded_ever, # Bytes
                     "added_date": added_date,
                     "files": files,
+                    "use_beets_import": USE_BEETS_IMPORT,
                     "imported": imported,
                     "importError": importError,
                     "eta": eta,

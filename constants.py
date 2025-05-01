@@ -3,6 +3,7 @@ import os
 BEETS_DIR = os.getenv("BEETSDIR", "/config")
 BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
 BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
+USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true"
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
 ADMIN_USER_DICT = {"role": "admin"}
 
