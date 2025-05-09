@@ -505,6 +505,7 @@ function app() {
             <!-- Info Column with more info displayed in a balanced layout -->
             <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400 flex-1 mr-2">
               <div>Size: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span></div>
+              <div x-show="torrent.added_by != ''">Added: <span x-text="torrent.added_by.charAt(0).toUpperCase() + torrent.added_by.slice(1)"></span></div>
               <div x-show="torrent.upload_ratio > 0">Ratio: <span x-text="torrent.upload_ratio.toFixed(2)"></span></div>
               <div x-show="torrent.percent_done > 0  && torrent.percent_done < 100">Progress: <span x-text="(torrent.percent_done).toFixed(1) + '%'"></span></div>
               <div x-show="torrent.status === 'Downloading' && torrent.eta">ETA: <span x-text="formatEta(torrent.eta)"></span></div>

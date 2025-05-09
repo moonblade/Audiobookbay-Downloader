@@ -2,6 +2,7 @@ import os
 import time
 import requests
 
+from auth import get_users
 from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, DELETE_AFTER_DAYS, JACKETT_API_KEY, JACKETT_API_URL, LABEL, STRICTLY_DELETE_AFTER_DAYS, TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT
 from db import get_candidates
 from utils import custom_logger
@@ -202,6 +203,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
     headers = {"X-Transmission-Session-Id": session_id}
     response = requests.post(TRANSMISSION_URL, auth=(TRANSMISSION_USER, TRANSMISSION_PASS), json=payload, headers=headers)
 
+    all_users = get_users()
     if response.status_code == 200:
         torrents = response.json()['arguments']['torrents']
         filtered_torrents = []
@@ -221,6 +223,11 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 files = torrent.get("files", [])
                 imported = BEETS_COMPLETE_LABEL in torrent.get("labels", [])
                 importError = BEETS_ERROR_LABEL in torrent.get("labels", [])
+                added_by = None
+                if user.get("role", "user") == "admin":
+                    added_by = [u for u in all_users if u.get("id", "0") in torrent.get("labels", [])]
+                    if added_by:
+                        added_by = added_by[0].get("username", "unknown")
                 candidates = []
                 if importError:
                     candidates = get_candidates(hash_string)
@@ -242,6 +249,7 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                     "eta": eta,
                     "candidates": candidates,
                     "hash_string": hash_string,
+                    "added_by": added_by,
                     "upload_ratio": upload_ratio  # Seed ratio
                 })
 
