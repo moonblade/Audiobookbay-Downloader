@@ -561,6 +561,7 @@ function app() {
                         <tr>
                             <th class="px-4 py-2 text-left text-gray-400">Username</th>
                             <th class="px-4 py-2 text-left text-gray-400">Role</th>
+                            <th class="px-4 py-2 text-left text-gray-400">Last Seen</th>
                             <th class="px-4 py-2 text-left text-gray-400">Actions</th> </tr>
                     </thead>
                     <tbody>
@@ -568,6 +569,7 @@ function app() {
                             <tr class="hover:bg-gray-700">
                                 <td class="px-4 py-2" x-text="user.username"></td>
                                 <td class="px-4 py-2" x-text="user.role"></td>
+                                <td class="px-4 py-2" x-text="user.last_seen"></td>
                                 <td class="px-4 py-2 flex gap-2">
                                     <button @click="startEdit(user)" class="text-blue-500 hover:text-blue-700">Edit</button>
                                     <button @click="deleteUser(user.id)" class="text-red-500 hover:text-red-700">Delete</button>
