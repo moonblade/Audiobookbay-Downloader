@@ -390,6 +390,16 @@ function app() {
     showCandidates(torrent) {
         this.selectedCandidate = null;
         this.candidates = torrent.candidates;
+        if (!this.candidates || this.candidates.length === 0) {
+          this.candidates = [{
+            "match": 0,
+            "artist": "",
+            "album": "Use as is",
+            "cover": "",
+            "id": "asis",
+            "length": "",
+          }];
+        }
         this.selectedTorrent = torrent;
         this.showCandidateDialog = true;
     },
