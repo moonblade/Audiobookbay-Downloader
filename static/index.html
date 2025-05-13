@@ -134,14 +134,16 @@ function app() {
     torrentStatus: [],
     loadingTorrentStatus: false,
 
-    getTorrentStatus: function() { // Modified to return a Promise
+    refreshInterval: 2500,
+
+    getTorrentStatus: function() {
         this.loadingTorrentStatus = true;
-        return fetch('/list') // Return the fetch promise
+        fetch('/list')
             .then(response => {
                 if (!response.ok) {
                     throw new Error('Failed to fetch torrent status');
                 }
-                return response.json(); // Return the parsed JSON promise
+                return response.json();
             })
             .then(data => {
                 this.torrentStatus = data;
@@ -151,6 +153,9 @@ function app() {
             })
             .finally(() => {
                 this.loadingTorrentStatus = false;
+                if (this.activeTab === 'status') {
+                    setTimeout(() => this.getTorrentStatus(), this.refreshInterval);
+                }
             });
     },
     activeTab: 'search', // Initialize active tab
