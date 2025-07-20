@@ -159,7 +159,7 @@ def add_label_to_torrent(torrent_id, user=None, label=LABEL):
         logger.warn(f"Error getting existing torrent labels: {e}")
 
     if user:
-        new_labels = list(set(new_labels + [user.get("id", "common")]))
+        new_labels = list(set(new_labels + [user.get("id", "common"), f"username:{user.get('username', 'unknown')}"]))
 
     payload = {
         "method": "torrent-set",
@@ -224,6 +224,12 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 imported = BEETS_COMPLETE_LABEL in torrent.get("labels", [])
                 importError = BEETS_ERROR_LABEL in torrent.get("labels", [])
                 added_by = None
+                # find any label with "username:" in it, the second part of the label is the username
+                if user.get("role", "user") == "admin" and torrent.get("labels"):
+                    for label in torrent.get("labels", []):
+                        if label.startswith("username:"):
+                            added_by = label.split(":", 1)[1]
+                            break
                 if user.get("role", "user") == "admin":
                     added_by = [u for u in all_users if u.get("id", "0") in torrent.get("labels", [])]
                     if added_by:
