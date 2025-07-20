@@ -34,24 +34,24 @@ def authenticate(request: Request):
             return user
     return None
 
-def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security)):
-    user = validate_user(credentials.username, credentials.password)
-    if user is None:
-        raise HTTPException(
-            status_code=httpstatus.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return user
+def authenticate_userpass(request: Request):
+    username = request.headers.get("X-authentik-username")
+    id = request.headers.get("X-authentik-uid")
+    role = "admin" if request.headers.get("X-authentik-role") == "admin" else "user"
+    if not username:
+        raise HTTPException(status_code=httpstatus.HTTP_401_UNAUTHORIZED, detail="Missing username header")
+    request.session["user_id"] = id
+    request.session["username"] = username
+    request.session["role"] = role
+    logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
+    return {"username": username, "role": role, "id": id}
 
 def validate_admin(request: Request):
-    x_api_key = request.session.get("user_id")
-    if x_api_key is None:
-        raise HTTPException(status_code=401, detail="Missing x-api-key header")
-    user = validate_admin_key(x_api_key)
-    if user is None:
-        raise HTTPException(status_code=401, detail="Invalid x-api-key")
-    return user
+    id = request.session.get("user_id")
+    role = request.session.get("role")
+    if role != "admin":
+        raise HTTPException(status_code=403, detail="Access forbidden: Admins only")
+    return {"username": request.session.get("username"), "role": role, "id": id}
 
 @app.get("/")
 def root(request: Request):
