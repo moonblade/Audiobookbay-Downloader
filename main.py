@@ -27,12 +27,13 @@ logger = custom_logger(__name__)
 security = HTTPBasic()
 
 def authenticate(request: Request):
-    user_id = request.session.get("user_id")
-    if user_id:
-        user = validate_key(user_id)
-        if user:
-            return user
-    return None
+    username = request.headers.get("X-authentik-username")
+    id = request.headers.get("X-authentik-uid")
+    role = "admin" if request.headers.get("X-authentik-role") == "admin" else "user"
+    if not username:
+        raise HTTPException(status_code=httpstatus.HTTP_401_UNAUTHORIZED, detail="Missing username header")
+    logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
+    return {"username": username, "role": role, "id": id}
 
 def authenticate_userpass(request: Request):
     username = request.headers.get("X-authentik-username")
