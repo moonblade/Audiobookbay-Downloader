@@ -48,3 +48,8 @@ services:
       - 9117:9117
     restart: unless-stopped
 ```
+
+## Authentik
+
+I ended up adding authentik on the k8s cluster to handle auth for everything, that makes local development a bitch. So right now its setup in proxy mode and then the headers are passed to this app as username.
+`X-authentik-username`. Unfortunately, this means local dev is crap now. Need to find something else I can do for this, but thats a problem for tomorrow me.
