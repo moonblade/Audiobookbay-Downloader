@@ -130,7 +130,7 @@ class ProgrammaticImportSession(importer.ImportSession):
     def choose_item(self, task):
         return
 
-    def resolve_duplicates(self, task, found_duplicates):
+    def resolve_duplicate(self, task, found_duplicates):
         logger.info(task)
         logger.info(found_duplicates)
         return
