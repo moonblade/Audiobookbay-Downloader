@@ -53,3 +53,5 @@ services:
 
 I ended up adding authentik on the k8s cluster to handle auth for everything, that makes local development a bitch. So right now its setup in proxy mode and then the headers are passed to this app as username.
 `X-authentik-username`. Unfortunately, this means local dev is crap now. Need to find something else I can do for this, but thats a problem for tomorrow me.
+
+Fixed issue with authentik, now it only comes up if AUTH_MODE variable is authentik, by default its local and will follow old behaviour
