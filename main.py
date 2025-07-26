@@ -19,6 +19,7 @@ app = FastAPI()
 
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = os.getenv("TITLE", "Audiobook Search")
+AUTH_MODE = os.getenv("AUTH_MODE", "local") # local, authentik
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
 
@@ -26,7 +27,7 @@ logger = custom_logger(__name__)
 
 security = HTTPBasic()
 
-def authenticate(request: Request):
+def authenticate_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
     id = request.headers.get("X-authentik-uid")
     role = "admin" if request.headers.get("X-authentik-role") == "admin" else "user"
@@ -35,7 +36,17 @@ def authenticate(request: Request):
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
     return {"username": username, "role": role, "id": id}
 
-def authenticate_userpass(request: Request):
+def authenticate(request: Request):
+    if AUTH_MODE == "authentik":
+        return authenticate_authentik(request)
+    user_id = request.session.get("user_id")
+    if user_id:
+        user = validate_key(user_id)
+        if user:
+            return user
+    return None
+
+def authenticate_userpass_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
     id = request.headers.get("X-authentik-uid")
     role = "admin" if request.headers.get("X-authentik-role") == "admin" else "user"
@@ -47,12 +58,30 @@ def authenticate_userpass(request: Request):
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
     return {"username": username, "role": role, "id": id}
 
+def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security)):
+    user = validate_user(credentials.username, credentials.password)
+    if user is None:
+        raise HTTPException(
+            status_code=httpstatus.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return user
+
 def validate_admin(request: Request):
-    id = request.session.get("user_id")
-    role = request.session.get("role")
-    if role != "admin":
-        raise HTTPException(status_code=403, detail="Access forbidden: Admins only")
-    return {"username": request.session.get("username"), "role": role, "id": id}
+    if AUTH_MODE == "authentik":
+        id = request.session.get("user_id")
+        role = request.session.get("role")
+        if role != "admin":
+            raise HTTPException(status_code=403, detail="Access forbidden: Admins only")
+        return {"username": request.session.get("username"), "role": role, "id": id}
+    x_api_key = request.session.get("user_id")
+    if x_api_key is None:
+        raise HTTPException(status_code=401, detail="Missing x-api-key header")
+    user = validate_admin_key(x_api_key)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Invalid x-api-key")
+    return user
 
 @app.get("/")
 def root(request: Request):
@@ -71,8 +100,10 @@ def role(request: Request, user: dict = Depends(authenticate)):
     else:
         return "Invalid credentials"
 
+auth_pass_fn = authenticate_userpass_authentik if AUTH_MODE == "authentik" else authenticate_userpass
+
 @app.get("/login")
-def login_page(request: Request, user: dict = Depends(authenticate_userpass)):
+async def login(request: Request, user: dict = Depends(auth_pass_fn)):
     if user:
         request.session["user_id"] = user["id"]
         request.session["username"] = user["username"]

@@ -226,9 +226,9 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                 added_by = None
                 # find any label with "username:" in it, the second part of the label is the username
                 if user.get("role", "user") == "admin" and torrent.get("labels"):
-                    for label in torrent.get("labels", []):
-                        if label.startswith("username:"):
-                            added_by = label.split(":", 1)[1]
+                    for _label in torrent.get("labels", []):
+                        if _label.startswith("username:"):
+                            added_by = _label.split(":", 1)[1]
                             break
                 if user.get("role", "user") == "admin":
                     added_by = [u for u in all_users if u.get("id", "0") in torrent.get("labels", [])]
