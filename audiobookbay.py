@@ -159,7 +159,11 @@ def add_label_to_torrent(torrent_id, user=None, label=LABEL):
         logger.warn(f"Error getting existing torrent labels: {e}")
 
     if user:
-        new_labels = list(set(new_labels + [user.get("id", "common"), f"username:{user.get('username', 'unknown')}"]))
+        new_labels = list(set(new_labels + [user.get("id", "common")]))
+        username = user.get("username", "")
+        if username:
+            new_labels.append(f"username:{username}")
+            new_labels = list(set(new_labels))
 
     payload = {
         "method": "torrent-set",
