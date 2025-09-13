@@ -234,10 +234,11 @@ def get_torrents(user, label=LABEL, torrent_id=None):
                         if _label.startswith("username:"):
                             added_by = _label.split(":", 1)[1]
                             break
-                if user.get("role", "user") == "admin":
+                if user.get("role", "user") == "admin" and not added_by:
                     added_by = [u for u in all_users if u.get("id", "0") in torrent.get("labels", [])]
                     if added_by:
                         added_by = added_by[0].get("username", "unknown")
+
                 candidates = []
                 if importError:
                     candidates = get_candidates(hash_string)
