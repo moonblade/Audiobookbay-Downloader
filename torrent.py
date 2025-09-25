@@ -108,7 +108,7 @@ class TransmissionClient(TorrentClientInterface):
         if torrents is None:
             return False
 
-        torrent_ids = [t["id"] for t in torrents]
+        torrent_ids = [str(t["id"]) for t in torrents]
         if torrent_id not in torrent_ids:
             logger.warning(f"User {user.id} tried to access torrent {torrent_id} without permission.")
             return False
@@ -253,7 +253,7 @@ class TransmissionClient(TorrentClientInterface):
         payload = {
             "method": "torrent-remove",
             "arguments": {
-                "ids": [torrent_id],
+                "ids": [int(torrent_id)],
                 "delete-local-data": delete_data
             }
         }
@@ -271,7 +271,7 @@ class TransmissionClient(TorrentClientInterface):
 
         payload = {
             "method": "torrent-stop",
-            "arguments": {"ids": [torrent_id]}
+            "arguments": {"ids": [int(torrent_id)]}
         }
 
         response_data = self._make_request(payload)
@@ -288,7 +288,7 @@ class TransmissionClient(TorrentClientInterface):
 
         payload = {
             "method": "torrent-start",
-            "arguments": {"ids": [torrent_id]}
+            "arguments": {"ids": [int(torrent_id)]}
         }
 
         response_data = self._make_request(payload)
@@ -318,7 +318,7 @@ class TransmissionClient(TorrentClientInterface):
         payload = {
             "method": "torrent-set",
             "arguments": {
-                "ids": [torrent_id],
+                "ids": [int(torrent_id)],
                 "labels": new_labels
             }
         }
@@ -342,7 +342,7 @@ class TransmissionClient(TorrentClientInterface):
         payload = {
             "method": "torrent-set",
             "arguments": {
-                "ids": [torrent_id],
+                "ids": [int(torrent_id)],
                 "labels": new_labels
             }
         }
