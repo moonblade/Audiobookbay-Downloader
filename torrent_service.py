@@ -19,10 +19,10 @@ class TorrentService:
         self.client: TorrentClientInterface = create_torrent_client(client_type, **client_kwargs)
         logger.info(f"Initialized TorrentService with {client_type.value} client")
 
-    def get_torrents(self, user: User, torrent_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get torrents for a user"""
         try:
-            return self.client.get_torrents(user, torrent_id)
+            return self.client.get_torrents(user)
         except Exception as e:
             logger.error(f"Error getting torrents: {e}")
             return []
@@ -120,9 +120,9 @@ def init_torrent_service(client_type: TorrentClientType = TorrentClientType.tran
     return torrent_service
 
 # Convenience functions that use the global service
-def get_torrents(user: User, torrent_id: Optional[int] = None) -> List[Dict[str, Any]]:
+def get_torrents(user: User) -> List[Dict[str, Any]]:
     """Get torrents for a user"""
-    return get_torrent_service().get_torrents(user, torrent_id)
+    return get_torrent_service().get_torrents(user)
 
 def add_torrent(torrent_url: str, user: User, label: str = None) -> bool:
     """Add torrent from URL/magnet link"""

@@ -19,7 +19,7 @@ class TorrentClientInterface(ABC):
     """Abstract base class for torrent clients"""
 
     @abstractmethod
-    def get_torrents(self, user: User, torrent_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get list of torrents for a user"""
         pass
 
@@ -113,7 +113,30 @@ class TransmissionClient(TorrentClientInterface):
             return False
         return True
 
-    def get_torrents(self, user: User, torrent_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_torrent_by_id(self, torrent_id: str) -> Optional[Dict[str, Any]]:
+        """Get torrent details by ID"""
+        payload = {
+            "method": "torrent-get",
+            "arguments": {
+                "fields": [
+                    "id", "name", "status", "labels", "totalSize", "percentDone",
+                    "downloadedEver", "uploadedEver", "addedDate", "uploadRatio",
+                    "files", "eta", "hashString"
+                ],
+                "ids": [int(torrent_id)]
+            }
+        }
+
+        response_data = self._make_request(payload)
+        if not response_data:
+            return None
+
+        torrents = response_data.get('arguments', {}).get('torrents', [])
+        if torrents:
+            return torrents[0]
+        return None
+
+    def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get torrents filtered by user permissions"""
         payload = {
             "method": "torrent-get",
@@ -135,10 +158,6 @@ class TransmissionClient(TorrentClientInterface):
         filtered_torrents = []
 
         for torrent in torrents:
-            # Filter by torrent_id if specified
-            if torrent_id is not None and torrent["id"] != torrent_id:
-                continue
-
             # Filter by label and user permissions
             torrent_labels = torrent.get("labels", [])
             if (LABEL not in torrent_labels or 
@@ -201,6 +220,7 @@ class TransmissionClient(TorrentClientInterface):
             label = LABEL
 
         # Convert to magnet if needed (from audiobookbay.py)
+        logger.debug(f"Adding torrent URL: {torrent_url}")
         torrent_url = self._get_jackett_magnet(torrent_url)
 
         payload = {
@@ -213,6 +233,7 @@ class TransmissionClient(TorrentClientInterface):
             return False
 
         try:
+            logger.debug(f"Transmission add_torrent response: {response_data}")
             torrent_id = response_data['arguments']['torrent-added']['id']
             self.add_label_to_torrent(torrent_id, user, label)
             return True
@@ -276,12 +297,13 @@ class TransmissionClient(TorrentClientInterface):
 
     def add_label_to_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Add label to torrent"""
-        torrents = self.get_torrents(user, torrent_id=torrent_id)
-        if not torrents:
+        torrent = self.get_torrent_by_id(torrent_id=torrent_id)
+        if not torrent:
             logger.warning(f"Failed to retrieve torrent with ID {torrent_id}")
             return False
 
-        current_labels = torrents[0].get("labels", [])
+        current_labels = torrent.get("labels", [])
+        logger.debug(f"Current labels for torrent {torrent_id}: {current_labels}")
         new_labels = list(set(current_labels + [label]))
 
         # Add user labels
@@ -378,7 +400,7 @@ class TransmissionClient(TorrentClientInterface):
 class DecypharrClient(TorrentClientInterface):
     """Decypharr torrent client implementation"""
 
-    def __init__(self, url: str = "http://localhost:8282", username: str = "", password: str = ""):
+    def __init__(self, url: str = "", username: str = "", password: str = ""):
         self.url = url.rstrip('/')
         self.username = username
         self.password = password
@@ -397,12 +419,10 @@ class DecypharrClient(TorrentClientInterface):
             logger.error(f"Decypharr API request failed: {e}")
             return None
 
-    def get_torrents(self, user: User, torrent_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get torrents from Decypharr (using qBittorrent API compatibility)"""
         # Decypharr uses qBittorrent API, so we use /api/v2/torrents/info
         params = {}
-        if torrent_id:
-            params['hashes'] = torrent_id
 
         response_data = self._make_request('GET', '/api/v2/torrents/info', params=params)
         if not response_data:

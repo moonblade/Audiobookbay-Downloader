@@ -1,12 +1,5 @@
 import os
 
-BEETS_DIR = os.getenv("BEETSDIR", "/config")
-BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
-BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
-USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true"
-BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
-ADMIN_USER_DICT = {"role": "admin"}
-
 JACKETT_API_URL = os.getenv("JACKETT_API_URL" "")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
 
@@ -29,3 +22,11 @@ DB_PATH = os.getenv("DB_PATH", "/tmp")
 
 DELETE_AFTER_DAYS = int(os.getenv("DELETE_AFTER_DAYS", 14))
 STRICTLY_DELETE_AFTER_DAYS = int(os.getenv("STRICTLY_DELETE_AFTER_DAYS", 30))
+
+# Beets
+BEETS_DIR = os.getenv("BEETSDIR", "/config")
+BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
+BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
+USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE == "transmission"        
+BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
+ADMIN_USER_DICT = {"role": "admin"}

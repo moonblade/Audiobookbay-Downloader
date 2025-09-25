@@ -2,7 +2,7 @@ import logging
 
 def custom_logger(name):
     logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)  # Set your desired logging level
+    logger.setLevel(logging.DEBUG)  # Set your desired logging level
 
     formatter = logging.Formatter(
         "%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s",

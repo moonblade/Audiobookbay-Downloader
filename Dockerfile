@@ -23,15 +23,7 @@ RUN mkdir -p /feeds && chmod 744 /feeds
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application
-COPY main.py .
-COPY constants.py .
-COPY db.py .
-COPY audiobookbay.py .
-COPY beetsapi.py .
-COPY utils.py .
-COPY auth.py .
-COPY models.py .
-COPY torrent.py .
+COPY *.py .
 COPY static/ static/
 
 # Expose the port the app runs on
