@@ -30,6 +30,8 @@ COPY audiobookbay.py .
 COPY beetsapi.py .
 COPY utils.py .
 COPY auth.py .
+COPY models.py .
+COPY torrent.py .
 COPY static/ static/
 
 # Expose the port the app runs on

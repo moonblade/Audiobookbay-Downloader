@@ -1,31 +1,68 @@
+
+import os
+import uvicorn
 from datetime import datetime, timedelta
 from typing import Optional
-from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
-from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL
-from db import select_candidate
-from pydantic import BaseModel
-from audiobookbay import delete_old_torrents, delete_torrent, get_torrents, pause_torrent, play_torrent, remove_label_from_torrent, remove_label_from_torrent_with_hash, search_audiobook, add_to_transmission
-from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Header, Request, Response
+
+from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-from starlette.middleware.sessions import SessionMiddleware
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.middleware.sessions import SessionMiddleware
+
+# Updated imports
+from models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
+from torrent_service import (
+    init_torrent_service, get_torrents, add_torrent, delete_torrent, 
+    pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents
+)
+from audiobookbay import search_audiobook
+from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
+from beetsapi import autoimport
+from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_PASSWORD, DECYPHARR_USERNAME, TORRENT_CLIENT_TYPE
+from db import select_candidate
 from utils import custom_logger
-import uvicorn
-import os
 
+# App configuration
 app = FastAPI()
-
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "local") # local, authentik
+AUTH_MODE = os.getenv("AUTH_MODE", "local")  # local, authentik
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
 
 logger = custom_logger(__name__)
-
 security = HTTPBasic()
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize torrent service on startup"""
+    try:
+        client_type = TorrentClientType(TORRENT_CLIENT_TYPE)
+
+        if client_type == TorrentClientType.transmission:
+            init_torrent_service(
+                client_type=client_type,
+                url=TRANSMISSION_URL,
+                username=TRANSMISSION_USER,
+                password=TRANSMISSION_PASS
+            )
+        elif client_type == TorrentClientType.decypharr:
+            init_torrent_service(
+                client_type=client_type,
+                url=DECYPHARR_URL,
+                username=DECYPHARR_USERNAME,
+                password=DECYPHARR_PASSWORD
+            )
+
+        logger.info(f"Initialized torrent service with {client_type.value} client")
+    except ValueError as e:
+        logger.error(f"Invalid torrent client type: {TORRENT_CLIENT_TYPE}")
+        raise RuntimeError(f"Invalid torrent client type: {TORRENT_CLIENT_TYPE}")
+    except Exception as e:
+        logger.error(f"Failed to initialize torrent service: {e}")
+        raise RuntimeError(f"Failed to initialize torrent service: {e}")
 
 def authenticate_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
@@ -34,16 +71,20 @@ def authenticate_authentik(request: Request):
     if not username:
         raise HTTPException(status_code=httpstatus.HTTP_401_UNAUTHORIZED, detail="Missing username header")
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
-    return {"username": username, "role": role, "id": id}
+    return User(username=username, role=role, id=id)
 
 def authenticate(request: Request):
     if AUTH_MODE == "authentik":
         return authenticate_authentik(request)
     user_id = request.session.get("user_id")
     if user_id:
-        user = validate_key(user_id)
-        if user:
-            return user
+        user_dict = validate_key(user_id)
+        if user_dict:
+            return User(
+                username=user_dict["username"],
+                role=user_dict["role"],
+                id=user_dict["id"]
+            )
     return None
 
 def authenticate_userpass_authentik(request: Request):
@@ -56,17 +97,21 @@ def authenticate_userpass_authentik(request: Request):
     request.session["username"] = username
     request.session["role"] = role
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
-    return {"username": username, "role": role, "id": id}
+    return User(username=username, role=role, id=id)
 
 def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security)):
-    user = validate_user(credentials.username, credentials.password)
-    if user is None:
+    user_dict = validate_user(credentials.username, credentials.password)
+    if user_dict is None:
         raise HTTPException(
             status_code=httpstatus.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Basic"},
         )
-    return user
+    return User(
+        username=user_dict["username"],
+        role=user_dict["role"],
+        id=user_dict["id"]
+    )
 
 def validate_admin(request: Request):
     if AUTH_MODE == "authentik":
@@ -74,14 +119,22 @@ def validate_admin(request: Request):
         role = request.session.get("role")
         if role != "admin":
             raise HTTPException(status_code=403, detail="Access forbidden: Admins only")
-        return {"username": request.session.get("username"), "role": role, "id": id}
+        return User(
+            username=request.session.get("username"),
+            role=role,
+            id=id
+        )
     x_api_key = request.session.get("user_id")
     if x_api_key is None:
         raise HTTPException(status_code=401, detail="Missing x-api-key header")
-    user = validate_admin_key(x_api_key)
-    if user is None:
+    user_dict = validate_admin_key(x_api_key)
+    if user_dict is None:
         raise HTTPException(status_code=401, detail="Invalid x-api-key")
-    return user
+    return User(
+        username=user_dict["username"],
+        role=user_dict["role"],
+        id=user_dict["id"]
+    )
 
 @app.get("/")
 def root(request: Request):
@@ -94,31 +147,20 @@ def title():
     return {"title": TITLE}
 
 @app.get("/role")
-def role(request: Request, user: dict = Depends(authenticate)):
+def role(request: Request, user: User = Depends(authenticate)):
     if user:
-        return {"role": user["role"]}
+        return {"role": user.role}
     else:
         return "Invalid credentials"
 
 auth_pass_fn = authenticate_userpass_authentik if AUTH_MODE == "authentik" else authenticate_userpass
 
 @app.get("/login")
-async def login(request: Request, user: dict = Depends(auth_pass_fn)):
+async def login(request: Request, user: User = Depends(auth_pass_fn)):
     if user:
-        request.session["user_id"] = user["id"]
-        request.session["username"] = user["username"]
-        request.session["role"] = user["role"]
-        #
-        # # Set a long-lived cookie (one year)
-        # expiry_date = datetime.utcnow() + timedelta(days=365)
-        # expiry_str = expiry_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
-        #
-        # request.session.cookie["user_id"] = user["id"]
-        # request.session.cookie["user_id"]["expires"] = expiry_str
-        # request.session.cookie["user_id"]["samesite"] = "Lax"
-        # request.session.cookie["user_id"]["secure"] = True
-        # request.session.cookie["user_id"]["httponly"] = True
-
+        request.session["user_id"] = user.id
+        request.session["username"] = user.username
+        request.session["role"] = user.role
         return RedirectResponse("/")
     else:
         return "Invalid credentials"
@@ -137,10 +179,10 @@ def status():
 @app.get("/search")
 def search(
     query: str = Query(..., description="Search query"),
-    user: str = Depends(authenticate)
+    user: User = Depends(authenticate)
 ):
     """
-    Searches a webpage based on the provided query and page number.
+    Searches for audiobooks based on the provided query.
     """
     try:
         results = search_audiobook(query)
@@ -149,19 +191,16 @@ def search(
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
 
-class TorrentRequest(BaseModel):
-    url: str
-
 @app.post("/add")
 def add(
     torrent: TorrentRequest,
-    user: str = Depends(authenticate)
+    user: User = Depends(authenticate)
 ):
     """
     Adds a torrent to the download queue.
     """
     try:
-        success = add_to_transmission(torrent.url, user)
+        success = add_torrent(torrent.url, user)
         if success:
             return {"status": "ok", "message": "Torrent added successfully"}
         else:
@@ -171,76 +210,27 @@ def add(
         raise HTTPException(status_code=500, detail="Add failed")
 
 @app.get("/list")
-def list(user: str = Depends(authenticate)):
+def list_torrents(user: User = Depends(authenticate)):
     """
     Lists all torrents in the download queue.
     """
-    return get_torrents(user)
-
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True) 
-
-class CreateUserRequest(BaseModel):
-    username: str
-    password: str
-@app.put("/users")
-def _add_user(createUserRequest: CreateUserRequest, user: str = Depends(validate_admin)):
-    """
-    Adds a user to the database.
-    """
     try:
-        add_user(createUserRequest.username, createUserRequest.password)
-        return {"status": "ok", "message": "User added successfully"}
+        return get_torrents(user)
     except Exception as e:
-        logger.error(f"Add user failed: {e}")
-        raise HTTPException(status_code=500, detail="Add user failed")
-
-@app.get("/users")
-def _get_user(user: str = Depends(validate_admin)):
-    """
-    Retrieves the user details.
-    """
-    return get_users_list()
-
-@app.delete("/users/{id}")
-def _delete_user(id: str, user: str = Depends(validate_admin)):
-    """
-    Deletes a user from the database.
-    """
-    try:
-        delete_user(id)
-        return {"status": "ok", "message": "User deleted successfully"}
-    except Exception as e:
-        logger.error(f"Delete user failed: {e}")
-        raise HTTPException(status_code=500, detail="Delete user failed")
-
-class ChangePasswordRequest(BaseModel):
-    id: str
-    password: str
-
-@app.post("/change_password")
-def _change_password(changePasswordRequest: ChangePasswordRequest, user: str = Depends(validate_admin)):
-    """
-    Changes the password for a user.
-    """
-    try:
-        change_password(changePasswordRequest.id, changePasswordRequest.password)
-        return {"status": "ok", "message": "Password changed successfully"}
-    except Exception as e:
-        logger.error(f"Change password failed: {e}")
-        raise HTTPException(status_code=500, detail="Change password failed")
+        logger.error(f"List torrents failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to list torrents")
 
 @app.delete("/torrent/{torrent_id}")
 def delete_torrent_endpoint(
     torrent_id: int,
     delete_data: bool = Query(True, description="Delete downloaded data as well"),
-    user: dict = Depends(authenticate) # Requires authentication
+    user: User = Depends(authenticate)
 ):
     """
     Deletes a torrent.
     """
     try:
-        if delete_torrent(torrent_id, delete_data=delete_data, user=user):  # Pass user to delete_torrent
+        if delete_torrent(torrent_id, user, delete_data=delete_data):
             return {"status": "ok", "message": f"Torrent {torrent_id} deleted successfully."}
         else:
             raise HTTPException(status_code=500, detail=f"Failed to delete torrent {torrent_id}")
@@ -251,7 +241,7 @@ def delete_torrent_endpoint(
 @app.post("/torrent/{torrent_id}/pause")
 def pause_torrent_endpoint(
     torrent_id: int,
-    user: dict = Depends(authenticate) # Requires authentication
+    user: User = Depends(authenticate)
 ):
     """
     Pauses a torrent.
@@ -268,22 +258,22 @@ def pause_torrent_endpoint(
 @app.post("/torrent/{torrent_id}/play")
 def play_torrent_endpoint(
     torrent_id: int,
-    user: dict = Depends(authenticate) # Requires authentication
+    user: User = Depends(authenticate)
 ):
     """
-    Plays a torrent.
+    Plays/resumes a torrent.
     """
     try:
-        if play_torrent(torrent_id, user):
-            return {"status": "ok", "message": f"Torrent {torrent_id} played successfully."}
+        if resume_torrent(torrent_id, user):
+            return {"status": "ok", "message": f"Torrent {torrent_id} resumed successfully."}
         else:
-            raise HTTPException(status_code=500, detail=f"Failed to play torrent {torrent_id}")
+            raise HTTPException(status_code=500, detail=f"Failed to resume torrent {torrent_id}")
     except Exception as e:
-        logger.error(f"Play torrent failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Play torrent failed: {e}")
+        logger.error(f"Resume torrent failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Resume torrent failed: {e}")
 
 @app.post("/selectCandidate/{hash_string}/{candidate_id}")
-def _select_candidate(hash_string: str, candidate_id: str, user: dict = Depends(authenticate)):
+def select_candidate_endpoint(hash_string: str, candidate_id: str, user: User = Depends(authenticate)):
     """
     Selects a candidate for a torrent.
     """
@@ -296,9 +286,66 @@ def _select_candidate(hash_string: str, candidate_id: str, user: dict = Depends(
         raise HTTPException(status_code=500, detail=f"Select candidate failed: {e}")
 
 @app.post("/autoimport")
-def _autoimport():
+def autoimport_endpoint():
     """
     Imports beets audible stuff to new directory.
     """
-    autoimport()
-    delete_old_torrents()
+    try:
+        autoimport()
+        delete_old_torrents()
+        return {"status": "ok", "message": "Auto-import completed successfully"}
+    except Exception as e:
+        logger.error(f"Auto-import failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Auto-import failed: {e}")
+
+# User management endpoints
+@app.put("/users")
+def add_user_endpoint(createUserRequest: CreateUserRequest, user: User = Depends(validate_admin)):
+    """
+    Adds a user to the database.
+    """
+    try:
+        add_user(createUserRequest.username, createUserRequest.password)
+        return {"status": "ok", "message": "User added successfully"}
+    except Exception as e:
+        logger.error(f"Add user failed: {e}")
+        raise HTTPException(status_code=500, detail="Add user failed")
+
+@app.get("/users")
+def get_users_endpoint(user: User = Depends(validate_admin)):
+    """
+    Retrieves the user details.
+    """
+    try:
+        return get_users_list()
+    except Exception as e:
+        logger.error(f"Get users failed: {e}")
+        raise HTTPException(status_code=500, detail="Get users failed")
+
+@app.delete("/users/{id}")
+def delete_user_endpoint(id: str, user: User = Depends(validate_admin)):
+    """
+    Deletes a user from the database.
+    """
+    try:
+        delete_user(id)
+        return {"status": "ok", "message": "User deleted successfully"}
+    except Exception as e:
+        logger.error(f"Delete user failed: {e}")
+        raise HTTPException(status_code=500, detail="Delete user failed")
+
+@app.post("/change_password")
+def change_password_endpoint(changePasswordRequest: ChangePasswordRequest, user: User = Depends(validate_admin)):
+    """
+    Changes the password for a user.
+    """
+    try:
+        change_password(changePasswordRequest.id, changePasswordRequest.password)
+        return {"status": "ok", "message": "Password changed successfully"}
+    except Exception as e:
+        logger.error(f"Change password failed: {e}")
+        raise HTTPException(status_code=500, detail="Change password failed")
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)
+

@@ -9,9 +9,16 @@ ADMIN_USER_DICT = {"role": "admin"}
 
 JACKETT_API_URL = os.getenv("JACKETT_API_URL" "")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
+
+# Torrent client configuration
+TORRENT_CLIENT_TYPE = os.getenv("TORRENT_CLIENT_TYPE", "transmission")  # transmission, decypharr
 TRANSMISSION_URL = os.getenv("TRANSMISSION_URL", "")
 TRANSMISSION_USER = os.getenv("TRANSMISSION_USER", "")
 TRANSMISSION_PASS = os.getenv("TRANSMISSION_PASS", "")
+DECYPHARR_URL = os.getenv("DECYPHARR_URL", "")
+DECYPHARR_USERNAME = os.getenv("DECYPHARR_USERNAME", "")
+DECYPHARR_PASSWORD = os.getenv("DECYPHARR_PASSWORD", "")
+
 LABEL = os.getenv("LABEL", "audiobook")
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
