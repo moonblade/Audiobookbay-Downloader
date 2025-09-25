@@ -83,6 +83,7 @@ class TransmissionClient(TorrentClientInterface):
 
         headers = {"X-Transmission-Session-Id": session_id}
         try:
+            logger.debug(f"Making Transmission request with payload: {payload} and headers: {headers} to {self.url}")
             response = requests.post(
                 self.url, 
                 auth=(self.username, self.password), 
@@ -274,6 +275,7 @@ class TransmissionClient(TorrentClientInterface):
         }
 
         response_data = self._make_request(payload)
+        logger.debug(f"Pause torrent response: {response_data}")
         if response_data:
             logger.info(f"Torrent {torrent_id} paused successfully.")
             return True
