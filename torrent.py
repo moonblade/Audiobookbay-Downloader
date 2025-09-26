@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABC
+import json
 import requests
 import time
 from typing import List, Dict, Any, Optional
@@ -402,13 +403,13 @@ class TransmissionClient(TorrentClientInterface):
 class DecypharrClient(TorrentClientInterface):
     """Decypharr torrent client implementation"""
 
-    def __init__(self, url: str = "", username: str = "", password: str = ""):
+    def __init__(self, url: str = "", api_key: str = ""):
         self.url = url.rstrip('/')
-        self.username = username
-        self.password = password
+        self.api_key = api_key
         self.session = requests.Session()
-        if username and password:
-            self.session.auth = (username, password)
+        if api_key:
+            # Set the API key in headers for authentication
+            self.session.headers.update({"X-API-Key": api_key})
 
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
         """Make request to Decypharr API"""
@@ -422,37 +423,34 @@ class DecypharrClient(TorrentClientInterface):
             return None
 
     def get_torrents(self, user: User) -> List[Dict[str, Any]]:
-        """Get torrents from Decypharr (using qBittorrent API compatibility)"""
-        # Decypharr uses qBittorrent API, so we use /api/v2/torrents/info
-        params = {}
-
-        response_data = self._make_request('GET', '/api/v2/torrents/info', params=params)
+        """Get torrents from Decypharr using /api/torrents endpoint"""
+        response_data = self._make_request('GET', '/api/torrents')
         if not response_data:
             return []
 
-        # Convert qBittorrent format to our internal format
+        # Convert Decypharr format to our internal format
         filtered_torrents = []
         for torrent in response_data:
-            # Decypharr doesn't support multi-user, so we don't filter by user
+            # Map Decypharr fields to our internal format
             filtered_torrents.append({
-                "id": torrent.get("hash", ""),  # qBittorrent uses hash as ID
-                "labels": torrent.get("tags", "").split(",") if torrent.get("tags") else [],
+                "id": torrent.get("hash", ""),  # Use hash as ID
+                "labels": [torrent.get("category", "")] if torrent.get("category") else [],
                 "name": torrent.get("name", "").replace("_", " ").replace("+", " ").replace(".", " ").strip(),
-                "status": torrent.get("state", "unknown"),
+                "status": self._map_torrent_status(torrent.get("status", "unknown")),
                 "total_size": torrent.get("size", 0),
-                "percent_done": torrent.get("progress", 0) * 100,
-                "downloaded_ever": torrent.get("downloaded", 0),
-                "uploaded_ever": torrent.get("uploaded", 0),
-                "added_date": torrent.get("added_on", 0),
-                "files": [],  # Would need separate API call to get files
+                "percent_done": (torrent.get("progress", 0) * 100) if torrent.get("progress") else 0,
+                "downloaded_ever": 0,  # Not available in Decypharr API
+                "uploaded_ever": 0,    # Not available in Decypharr API
+                "added_date": self._parse_date(torrent.get("addedOn", "")),
+                "files": [],  # Not available in this endpoint
                 "use_beets_import": False,  # Decypharr handles this differently
                 "imported": False,
                 "importError": False,
-                "eta": torrent.get("eta", -1),
+                "eta": -1,  # Not available in Decypharr API
                 "candidates": [],
                 "hash_string": torrent.get("hash", ""),
                 "added_by": "system",  # Decypharr is single-user
-                "upload_ratio": torrent.get("ratio", 0.0)
+                "upload_ratio": 0.0  # Not available in Decypharr API
             })
 
         return filtered_torrents

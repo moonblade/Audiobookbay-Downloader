@@ -19,7 +19,7 @@ from torrent_service import (
 from audiobookbay import search_audiobook
 from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
 from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_PASSWORD, DECYPHARR_USERNAME, TORRENT_CLIENT_TYPE
+from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, TORRENT_CLIENT_TYPE
 from db import select_candidate
 from utils import custom_logger
 
@@ -52,8 +52,7 @@ async def startup_event():
             init_torrent_service(
                 client_type=client_type,
                 url=DECYPHARR_URL,
-                username=DECYPHARR_USERNAME,
-                password=DECYPHARR_PASSWORD
+                api_key=DECYPHARR_API_KEY
             )
 
         logger.info(f"Initialized torrent service with {client_type.value} client")
@@ -222,7 +221,7 @@ def list_torrents(user: User = Depends(authenticate)):
 
 @app.delete("/torrent/{torrent_id}")
 def delete_torrent_endpoint(
-    torrent_id: int,
+    torrent_id: str,
     delete_data: bool = Query(True, description="Delete downloaded data as well"),
     user: User = Depends(authenticate)
 ):
@@ -240,7 +239,7 @@ def delete_torrent_endpoint(
 
 @app.post("/torrent/{torrent_id}/pause")
 def pause_torrent_endpoint(
-    torrent_id: int,
+    torrent_id: str,
     user: User = Depends(authenticate)
 ):
     """
@@ -257,7 +256,7 @@ def pause_torrent_endpoint(
 
 @app.post("/torrent/{torrent_id}/play")
 def play_torrent_endpoint(
-    torrent_id: int,
+    torrent_id: str,
     user: User = Depends(authenticate)
 ):
     """

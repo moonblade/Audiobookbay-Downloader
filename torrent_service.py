@@ -40,42 +40,42 @@ class TorrentService:
             logger.error(f"Error adding torrent: {e}")
             return False
 
-    def delete_torrent(self, torrent_id: int, user: User, delete_data: bool = True) -> bool:
+    def delete_torrent(self, torrent_id: str, user: User, delete_data: bool = True) -> bool:
         """Delete a torrent"""
         try:
-            return self.client.delete_torrent(str(torrent_id), user, delete_data)
+            return self.client.delete_torrent(torrent_id, user, delete_data)
         except Exception as e:
             logger.error(f"Error deleting torrent {torrent_id}: {e}")
             return False
 
-    def pause_torrent(self, torrent_id: int, user: User) -> bool:
+    def pause_torrent(self, torrent_id: str, user: User) -> bool:
         """Pause a torrent"""
         try:
-            return self.client.pause_torrent(str(torrent_id), user)
+            return self.client.pause_torrent(torrent_id, user)
         except Exception as e:
             logger.error(f"Error pausing torrent {torrent_id}: {e}")
             return False
 
-    def resume_torrent(self, torrent_id: int, user: User) -> bool:
+    def resume_torrent(self, torrent_id: str, user: User) -> bool:
         """Resume/play a torrent"""
         try:
-            return self.client.resume_torrent(str(torrent_id), user)
+            return self.client.resume_torrent(torrent_id, user)
         except Exception as e:
             logger.error(f"Error resuming torrent {torrent_id}: {e}")
             return False
 
-    def add_label_to_torrent(self, torrent_id: int, user: User, label: str) -> bool:
+    def add_label_to_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Add label to torrent"""
         try:
-            return self.client.add_label_to_torrent(str(torrent_id), user, label)
+            return self.client.add_label_to_torrent(torrent_id, user, label)
         except Exception as e:
             logger.error(f"Error adding label to torrent {torrent_id}: {e}")
             return False
 
-    def remove_label_from_torrent(self, torrent_id: int, user: User, label: str) -> bool:
+    def remove_label_from_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Remove label from torrent"""
         try:
-            return self.client.remove_label_from_torrent(str(torrent_id), user, label)
+            return self.client.remove_label_from_torrent(torrent_id, user, label)
         except Exception as e:
             logger.error(f"Error removing label from torrent {torrent_id}: {e}")
             return False
@@ -128,23 +128,23 @@ def add_torrent(torrent_url: str, user: User, label: str = None) -> bool:
     """Add torrent from URL/magnet link"""
     return get_torrent_service().add_torrent(torrent_url, user, label)
 
-def delete_torrent(torrent_id: int, user: User, delete_data: bool = True) -> bool:
+def delete_torrent(torrent_id: str, user: User, delete_data: bool = True) -> bool:
     """Delete a torrent"""
     return get_torrent_service().delete_torrent(torrent_id, user, delete_data)
 
-def pause_torrent(torrent_id: int, user: User) -> bool:
+def pause_torrent(torrent_id: str, user: User) -> bool:
     """Pause a torrent"""
     return get_torrent_service().pause_torrent(torrent_id, user)
 
-def resume_torrent(torrent_id: int, user: User) -> bool:
+def resume_torrent(torrent_id: str, user: User) -> bool:
     """Resume/play a torrent"""
     return get_torrent_service().resume_torrent(torrent_id, user)
 
-def add_label_to_torrent(torrent_id: int, user: User, label: str) -> bool:
+def add_label_to_torrent(torrent_id: str, user: User, label: str) -> bool:
     """Add label to torrent"""
     return get_torrent_service().add_label_to_torrent(torrent_id, user, label)
 
-def remove_label_from_torrent(torrent_id: int, user: User, label: str) -> bool:
+def remove_label_from_torrent(torrent_id: str, user: User, label: str) -> bool:
     """Remove label from torrent"""
     return get_torrent_service().remove_label_from_torrent(torrent_id, user, label)
 
