@@ -24,7 +24,7 @@ class TorrentService:
         try:
             return self.client.get_torrents(user)
         except Exception as e:
-            logger.error(f"Error getting torrents: {e}")
+            logger.exception(f"Error getting torrents: {e}")
             return []
 
     def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:

@@ -1,5 +1,7 @@
 import os
 
+from models import User
+
 JACKETT_API_URL = os.getenv("JACKETT_API_URL" "")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
 
@@ -28,4 +30,4 @@ BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
 BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
 USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE == "transmission"        
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
-ADMIN_USER_DICT = {"role": "admin"}
+ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)

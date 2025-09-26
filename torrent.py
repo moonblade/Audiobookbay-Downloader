@@ -109,7 +109,7 @@ class TransmissionClient(TorrentClientInterface):
         if torrents is None:
             return False
 
-        torrent_ids = [str(t["id"]) for t in torrents]
+        torrent_ids = [str(t.get("id", "")) for t in torrents]
         if torrent_id not in torrent_ids:
             logger.warning(f"User {user.id} tried to access torrent {torrent_id} without permission.")
             return False
