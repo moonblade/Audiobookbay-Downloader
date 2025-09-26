@@ -409,23 +409,60 @@ class DecypharrClient(TorrentClientInterface):
         self.session = requests.Session()
         if api_key:
             # Set the API key in headers for authentication
-            self.session.headers.update({"X-API-Key": api_key})
+            self.session.headers.update({"Authorization": f"Bearer {api_key}"})
 
     def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[Dict[str, Any]]:
         """Make request to Decypharr API"""
         try:
             url = f"{self.url}{endpoint}"
+            logger.debug(f"Making {method} request to {url} with kwargs: {kwargs}")
             response = self.session.request(method, url, **kwargs)
+            
+            if response.status_code == 404:
+                logger.warning(f"Endpoint {endpoint} not found (404) - feature not implemented in Decypharr")
+                return None
+                
             response.raise_for_status()
             return response.json() if response.content else {}
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                logger.warning(f"Decypharr API endpoint {endpoint} not implemented")
+            else:
+                logger.error(f"Decypharr API HTTP error: {e}")
+            return None
         except Exception as e:
             logger.error(f"Decypharr API request failed: {e}")
             return None
+
+    def get_arrs(self) -> List[Dict[str, Any]]:
+        """Get all configured Arrs from Decypharr"""
+        response_data = self._make_request('GET', '/api/arrs')
+        if not response_data:
+            logger.warning("Decypharr /api/arrs endpoint not implemented - returning empty list")
+            return []
+        return response_data
+
+    def add_content(self, magnet_url: str) -> Dict[str, Any]:
+        """Add content to Decypharr using /api/add endpoint"""
+        
+        # Prepare form data payload
+        data = {
+            "urls": magnet_url,  # Send as single string for form data
+            "downloadUncached": "false"
+        }
+
+        response_data = self._make_request('POST', '/api/add', data=data)
+        if not response_data:
+            logger.warning("Decypharr /api/add endpoint failed")
+            return {"results": [], "errors": ["Add content feature failed"]}
+        
+        return response_data
 
     def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get torrents from Decypharr using /api/torrents endpoint"""
         response_data = self._make_request('GET', '/api/torrents')
         if not response_data:
+            logger.warning("Decypharr /api/torrents endpoint not implemented - returning empty list")
             return []
 
         # Convert Decypharr format to our internal format
@@ -455,70 +492,100 @@ class DecypharrClient(TorrentClientInterface):
 
         return filtered_torrents
 
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
-        """Add torrent to Decypharr"""
-        # Use qBittorrent API format
-        data = {
-            'urls': torrent_url,
+    def delete_torrents(self, hashes: List[str], remove_from_debrid: bool = False) -> bool:
+        """Delete multiple torrents using Decypharr API"""
+        params = {
+            'hashes': ','.join(hashes),
+            'removeFromDebrid': str(remove_from_debrid).lower()
         }
-        if label:
-            data['tags'] = label
+        response_data = self._make_request('DELETE', '/api/torrents', params=params)
+        if response_data is None:
+            logger.warning("Decypharr batch torrent deletion not implemented")
+            return False
+        return True
 
-        response_data = self._make_request('POST', '/api/v2/torrents/add', data=data)
-        return response_data is not None
+    def delete_single_torrent(self, category: str, hash_id: str, remove_from_debrid: bool = False) -> bool:
+        """Delete single torrent by category and hash"""
+        params = {'removeFromDebrid': str(remove_from_debrid).lower()}
+        response_data = self._make_request('DELETE', f'/api/torrents/{category}/{hash_id}', params=params)
+        if response_data is None:
+            logger.warning("Decypharr single torrent deletion not implemented")
+            return False
+        return True
+
+    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
+        """Add torrent to Decypharr using the /api/add endpoint"""
+        # Use Decypharr's native add endpoint
+        result = self.add_content(torrent_url)
+        if result and (result.get("results") or result.get("success")):
+            logger.info(f"Successfully added torrent to Decypharr: {torrent_url}")
+            return True
+        
+        logger.error(f"Failed to add torrent using Decypharr add endpoint: {result}")
+        return False
 
     def delete_torrent(self, torrent_id: str, user: User, delete_data: bool = True) -> bool:
         """Delete torrent from Decypharr"""
-        data = {
-            'hashes': torrent_id,
-            'deleteFiles': delete_data
-        }
-        response_data = self._make_request('POST', '/api/v2/torrents/delete', data=data)
-        if response_data is not None:
+        # Try using the single torrent deletion endpoint first
+        success = self.delete_single_torrent("", torrent_id, delete_data)
+        if not success:
+            # Fallback to batch deletion
+            success = self.delete_torrents([torrent_id], delete_data)
+        
+        if success:
             logger.info(f"Torrent {torrent_id} {'and its data' if delete_data else ''} deleted successfully.")
-            return True
-        return False
+        else:
+            logger.warning(f"Failed to delete torrent {torrent_id} - feature may not be implemented")
+        return success
 
     def pause_torrent(self, torrent_id: str, user: User) -> bool:
         """Pause torrent in Decypharr"""
-        data = {'hashes': torrent_id}
-        response_data = self._make_request('POST', '/api/v2/torrents/pause', data=data)
-        if response_data is not None:
-            logger.info(f"Torrent {torrent_id} paused successfully.")
-            return True
+        logger.warning("Decypharr pause torrent feature not implemented")
         return False
 
     def resume_torrent(self, torrent_id: str, user: User) -> bool:
         """Resume torrent in Decypharr"""
-        data = {'hashes': torrent_id}
-        response_data = self._make_request('POST', '/api/v2/torrents/resume', data=data)
-        if response_data is not None:
-            logger.info(f"Torrent {torrent_id} resumed successfully.")
-            return True
+        logger.warning("Decypharr resume torrent feature not implemented")
         return False
 
     def add_label_to_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Add tag/label to torrent in Decypharr"""
-        data = {
-            'hashes': torrent_id,
-            'tags': label
-        }
-        response_data = self._make_request('POST', '/api/v2/torrents/addTags', data=data)
-        return response_data is not None
+        logger.warning("Decypharr add label feature not implemented")
+        return False
 
     def remove_label_from_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Remove tag/label from torrent in Decypharr"""
-        data = {
-            'hashes': torrent_id,
-            'tags': label
-        }
-        response_data = self._make_request('POST', '/api/v2/torrents/removeTags', data=data)
-        return response_data is not None
+        logger.warning("Decypharr remove label feature not implemented")
+        return False
 
     def delete_old_torrents(self) -> None:
         """Decypharr handles cleanup automatically via debrid services"""
         logger.info("Decypharr handles torrent cleanup automatically via debrid services")
         pass
+
+    def _map_torrent_status(self, status: str) -> str:
+        """Map Decypharr status to internal status"""
+        # Map common statuses
+        status_map = {
+            "downloading": "Downloading",
+            "seeding": "Seeding", 
+            "completed": "Complete",
+            "paused": "Stopped",
+            "error": "Error",
+            "queued": "Queued"
+        }
+        return status_map.get(status.lower(), status)
+
+    def _parse_date(self, date_str: str) -> int:
+        """Parse date string to timestamp"""
+        try:
+            if date_str:
+                from datetime import datetime
+                dt = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+                return int(dt.timestamp())
+        except:
+            pass
+        return 0
 
 
 # Factory function to create appropriate client
