@@ -445,13 +445,16 @@ class DecypharrClient(TorrentClientInterface):
     def add_content(self, magnet_url: str) -> Dict[str, Any]:
         """Add content to Decypharr using /api/add endpoint"""
         
-        # Prepare form data payload
-        data = {
-            "urls": magnet_url,  # Send as single string for form data
-            "downloadUncached": "false"
+        # Prepare multipart form data payload matching working sample
+        files = {
+            "urls": (None, magnet_url),
+            "arr": (None, ""),
+            "downloadFolder": (None, "/mnt"),
+            "action": (None, "none"),
+            "downloadUncached": (None, "true")
         }
 
-        response_data = self._make_request('POST', '/api/add', data=data)
+        response_data = self._make_request('POST', '/api/add', files=files)
         if not response_data:
             logger.warning("Decypharr /api/add endpoint failed")
             return {"results": [], "errors": ["Add content feature failed"]}
@@ -486,7 +489,7 @@ class DecypharrClient(TorrentClientInterface):
                 "eta": -1,  # Not available in Decypharr API
                 "candidates": [],
                 "hash_string": torrent.get("hash", ""),
-                "added_by": "system",  # Decypharr is single-user
+                "added_by": "",  # Decypharr is single-user
                 "upload_ratio": 0.0  # Not available in Decypharr API
             })
 
