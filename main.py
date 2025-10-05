@@ -20,7 +20,7 @@ from torrent_service import (
 from audiobookbay import search_audiobook
 # Local auth phased out - only authentik and none modes supported
 from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, TORRENT_CLIENT_TYPE
+from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE
 from db import select_candidate
 from utils import custom_logger
 
@@ -60,9 +60,6 @@ async def lifespan(app: FastAPI):
 
 # App configuration
 app = FastAPI(lifespan=lifespan)
-SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
-TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "none")  # authentik, none
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)

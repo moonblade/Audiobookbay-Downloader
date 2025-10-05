@@ -31,3 +31,8 @@ BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
 USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE == "transmission"        
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
 ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)
+
+# App configuration
+SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
+TITLE = os.getenv("TITLE", "Audiobook Search")
+AUTH_MODE = os.getenv("AUTH_MODE", "none")  # authentik, none
