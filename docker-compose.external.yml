@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  audiobookbay-downloader:
+    build: .
+    container_name: abb-downloader
+    ports:
+      - "9000:9000"
+    environment:
+      # Jackett Configuration (External)
+      - JACKETT_API_URL=https://jackett.example.com/api/v2.0/indexers/audiobookbay/results
+      - JACKETT_API_KEY=your_jackett_api_key_here
+      
+      # Torrent Client Configuration (External - choose one)
+      # Option 1: Transmission
+      - TORRENT_CLIENT_TYPE=transmission
+      - TRANSMISSION_URL=https://transmission.example.com/transmission/rpc
+      - TRANSMISSION_USER=your_transmission_user
+      - TRANSMISSION_PASS=your_transmission_password
+      
+      # Option 2: Decypharr (uncomment to use instead of Transmission)
+      # - TORRENT_CLIENT_TYPE=decypharr
+      # - DECYPHARR_URL=https://decypharr.example.com
+      # - DECYPHARR_API_KEY=your_decypharr_api_key
+      
+      # App Configuration
+      - AUTH_MODE=none                              # Options: authentik, none
+      - TITLE=Audiobook Search                      # Application title
+      - SESSION_KEY=your_random_session_key_here    # Change this to a random string
+      - LABEL=audiobook                            # Default torrent label
+      
+      # Cleanup Configuration
+      - DELETE_AFTER_DAYS=14
+      - STRICTLY_DELETE_AFTER_DAYS=30
+      
+      # Beets Integration (Optional)
+      - USE_BEETS_IMPORT=false
+      - BEETSDIR=/config
+      - BEETS_INPUT_PATH=/beetsinput
+      - BEETS_COMPLETE_LABEL=beets
+      - BEETS_ERROR_LABEL=beetserror
+      
+      # Admin Configuration (for Authentik mode)
+      - ADMIN_USER=admin
+      - ADMIN_PASS=YWRtaW4=                        # Base64 encoded "admin"
+      - ADMIN_ID=e0617896-4560-193c-cc34-653683f99c35
+      - DB_PATH=/tmp
+      
+    volumes:
+      - ./data:/tmp                               # Data persistence
+      - ./logs:/app/logs                          # Log files (optional)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/title"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

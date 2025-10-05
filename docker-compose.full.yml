@@ -1,0 +1,136 @@
+version: '3.8'
+
+services:
+  audiobookbay-downloader:
+    build: .
+    container_name: abb-downloader
+    ports:
+      - "9000:9000"
+    environment:
+      # Jackett Configuration (Internal)
+      - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
+      - JACKETT_API_KEY=your_jackett_api_key_here  # Set after Jackett setup
+      
+      # Transmission Configuration (Internal)
+      - TORRENT_CLIENT_TYPE=transmission
+      - TRANSMISSION_URL=http://transmission:9091/transmission/rpc
+      - TRANSMISSION_USER=admin
+      - TRANSMISSION_PASS=password
+      
+      # App Configuration
+      - AUTH_MODE=none                              # Options: authentik, none
+      - TITLE=Audiobook Search                      # Application title
+      - SESSION_KEY=your_random_session_key_here    # Change this to a random string
+      - LABEL=audiobook                            # Default torrent label
+      
+      # Cleanup Configuration
+      - DELETE_AFTER_DAYS=14
+      - STRICTLY_DELETE_AFTER_DAYS=30
+      
+      # Beets Integration (Optional)
+      - USE_BEETS_IMPORT=false
+      - BEETSDIR=/config
+      - BEETS_INPUT_PATH=/beetsinput
+      - BEETS_COMPLETE_LABEL=beets
+      - BEETS_ERROR_LABEL=beetserror
+      
+      # Admin Configuration
+      - ADMIN_USER=admin
+      - ADMIN_PASS=YWRtaW4=                        # Base64 encoded "admin"
+      - ADMIN_ID=e0617896-4560-193c-cc34-653683f99c35
+      - DB_PATH=/tmp
+      
+    volumes:
+      - app_data:/tmp                             # Application data
+      - downloads:/downloads                      # Shared downloads volume
+      - beets_config:/config                      # Beets configuration (if used)
+    depends_on:
+      - jackett
+      - transmission
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/title"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: abb-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - jackett_config:/config
+      - downloads:/downloads
+    ports:
+      - "9117:9117"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9117"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  transmission:
+    image: lscr.io/linuxserver/transmission:latest
+    container_name: abb-transmission
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - TRANSMISSION_WEB_HOME=/flood-for-transmission/  # Modern UI
+      - USER=admin
+      - PASS=password
+      - WHITELIST=*                               # Allow all IPs (adjust for security)
+      - PEERPORT=51413
+    volumes:
+      - transmission_config:/config
+      - downloads:/downloads
+      - downloads:/watch                          # Watch folder for .torrent files
+    ports:
+      - "9091:9091"                             # Web UI
+      - "51413:51413"                           # Peer communication
+      - "51413:51413/udp"                       # DHT
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Optional: Beets for music library management
+  # Uncomment if you want to use beets integration
+  # beets:
+  #   image: lscr.io/linuxserver/beets:latest
+  #   container_name: abb-beets
+  #   environment:
+  #     - PUID=1000
+  #     - PGID=1000
+  #     - TZ=UTC
+  #   volumes:
+  #     - beets_config:/config
+  #     - downloads:/downloads
+  #     - music_library:/music
+  #   restart: unless-stopped
+
+volumes:
+  jackett_config:
+    driver: local
+  transmission_config:
+    driver: local
+  app_data:
+    driver: local
+  beets_config:
+    driver: local
+  downloads:
+    driver: local
+  # music_library:  # Uncomment if using beets
+  #   driver: local
+
+networks:
+  default:
+    name: audiobookbay-network
