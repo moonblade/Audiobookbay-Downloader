@@ -329,12 +329,12 @@ class TransmissionClient(TorrentClientInterface):
 
     def remove_label_from_torrent(self, torrent_id: str, user: User, label: str) -> bool:
         """Remove label from torrent"""
-        torrents = self.get_torrents(user, torrent_id=torrent_id)
-        if not torrents:
+        torrent = self.get_torrent_by_id(torrent_id)
+        if not torrent:
             logger.warning(f"Failed to retrieve torrent with ID {torrent_id}")
             return False
 
-        current_labels = torrents[0].get("labels", [])
+        current_labels = torrent.get("labels", [])
         new_labels = list(set(current_labels) - {label})
 
         if not new_labels:

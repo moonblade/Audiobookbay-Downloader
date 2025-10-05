@@ -94,7 +94,7 @@ class TorrentService:
             # For other clients that might use hash directly as ID
             return self.client.remove_label_from_torrent(hash_string, user, label)
         except Exception as e:
-            logger.error(f"Error removing label from torrent with hash {hash_string}: {e}")
+            logger.exception(f"Error removing label from torrent with hash {hash_string}: {e}")
             return False
 
     def delete_old_torrents(self) -> None:
