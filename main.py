@@ -1,6 +1,7 @@
 
 import os
 import uvicorn
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -23,21 +24,10 @@ from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TR
 from db import select_candidate
 from utils import custom_logger
 
-# App configuration
-app = FastAPI()
-SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
-TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "local")  # local, authentik
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
-
-logger = custom_logger(__name__)
-security = HTTPBasic()
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize torrent service on startup"""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    # Startup
     try:
         client_type = TorrentClientType(TORRENT_CLIENT_TYPE)
 
@@ -62,6 +52,23 @@ async def startup_event():
     except Exception as e:
         logger.error(f"Failed to initialize torrent service: {e}")
         raise RuntimeError(f"Failed to initialize torrent service: {e}")
+    
+    yield
+    
+    # Shutdown - add any cleanup logic here if needed
+    logger.info("Application shutdown")
+
+# App configuration
+app = FastAPI(lifespan=lifespan)
+SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
+TITLE = os.getenv("TITLE", "Audiobook Search")
+AUTH_MODE = os.getenv("AUTH_MODE", "local")  # local, authentik
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
+
+logger = custom_logger(__name__)
+security = HTTPBasic()
 
 def authenticate_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
