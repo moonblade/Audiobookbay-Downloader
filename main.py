@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "local")  # local, authentik
+AUTH_MODE = os.getenv("AUTH_MODE", "none")  # local, authentik, none
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
@@ -80,6 +80,9 @@ def authenticate_authentik(request: Request):
     return User(username=username, role=role, id=id)
 
 def authenticate(request: Request):
+    if AUTH_MODE == "none":
+        # Auto-authenticate as admin when auth is disabled
+        return User(username="admin", role="admin", id="admin")
     if AUTH_MODE == "authentik":
         return authenticate_authentik(request)
     user_id = request.session.get("user_id")
@@ -120,6 +123,9 @@ def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security))
     )
 
 def validate_admin(request: Request):
+    if AUTH_MODE == "none":
+        # Auto-authenticate as admin when auth is disabled
+        return User(username="admin", role="admin", id="admin")
     if AUTH_MODE == "authentik":
         id = request.session.get("user_id")
         role = request.session.get("role")
@@ -144,6 +150,9 @@ def validate_admin(request: Request):
 
 @app.get("/")
 def root(request: Request):
+    if AUTH_MODE == "none":
+        # Skip login check when auth is disabled
+        return FileResponse(os.path.join("static", "index.html"))
     if "user_id" not in request.session:
         return RedirectResponse("/login")
     return FileResponse(os.path.join("static", "index.html"))
@@ -159,7 +168,18 @@ def role(request: Request, user: User = Depends(authenticate)):
     else:
         return "Invalid credentials"
 
-auth_pass_fn = authenticate_userpass_authentik if AUTH_MODE == "authentik" else authenticate_userpass
+def authenticate_none(request: Request):
+    """Auto-authenticate as admin when AUTH_MODE is none"""
+    request.session["user_id"] = "admin"
+    request.session["username"] = "admin"
+    request.session["role"] = "admin"
+    return User(username="admin", role="admin", id="admin")
+
+auth_pass_fn = (
+    authenticate_userpass_authentik if AUTH_MODE == "authentik" 
+    else authenticate_none if AUTH_MODE == "none"
+    else authenticate_userpass
+)
 
 @app.get("/login")
 async def login(request: Request, user: User = Depends(auth_pass_fn)):
