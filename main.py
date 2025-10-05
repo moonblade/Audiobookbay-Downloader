@@ -18,7 +18,7 @@ from torrent_service import (
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents
 )
 from audiobookbay import search_audiobook
-from auth import add_user, change_password, delete_user, get_users, get_users_list, validate_admin_key, validate_key, validate_user
+# Local auth phased out - only authentik and none modes supported
 from beetsapi import autoimport
 from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, TORRENT_CLIENT_TYPE
 from db import select_candidate
@@ -62,7 +62,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "none")  # local, authentik, none
+AUTH_MODE = os.getenv("AUTH_MODE", "none")  # authentik, none
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
@@ -83,18 +83,11 @@ def authenticate(request: Request):
     if AUTH_MODE == "none":
         # Auto-authenticate as admin when auth is disabled
         return User(username="admin", role="admin", id="admin")
-    if AUTH_MODE == "authentik":
+    elif AUTH_MODE == "authentik":
         return authenticate_authentik(request)
-    user_id = request.session.get("user_id")
-    if user_id:
-        user_dict = validate_key(user_id)
-        if user_dict:
-            return User(
-                username=user_dict["username"],
-                role=user_dict["role"],
-                id=user_dict["id"]
-            )
-    return None
+    else:
+        # Only authentik and none modes are supported
+        raise HTTPException(status_code=500, detail="Invalid auth mode. Only 'authentik' and 'none' are supported.")
 
 def authenticate_userpass_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
@@ -108,25 +101,13 @@ def authenticate_userpass_authentik(request: Request):
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
     return User(username=username, role=role, id=id)
 
-def authenticate_userpass(credentials: HTTPBasicCredentials = Depends(security)):
-    user_dict = validate_user(credentials.username, credentials.password)
-    if user_dict is None:
-        raise HTTPException(
-            status_code=httpstatus.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
-        )
-    return User(
-        username=user_dict["username"],
-        role=user_dict["role"],
-        id=user_dict["id"]
-    )
+# authenticate_userpass removed - local auth no longer supported
 
 def validate_admin(request: Request):
     if AUTH_MODE == "none":
         # Auto-authenticate as admin when auth is disabled
         return User(username="admin", role="admin", id="admin")
-    if AUTH_MODE == "authentik":
+    elif AUTH_MODE == "authentik":
         id = request.session.get("user_id")
         role = request.session.get("role")
         if role != "admin":
@@ -136,17 +117,9 @@ def validate_admin(request: Request):
             role=role,
             id=id
         )
-    x_api_key = request.session.get("user_id")
-    if x_api_key is None:
-        raise HTTPException(status_code=401, detail="Missing x-api-key header")
-    user_dict = validate_admin_key(x_api_key)
-    if user_dict is None:
-        raise HTTPException(status_code=401, detail="Invalid x-api-key")
-    return User(
-        username=user_dict["username"],
-        role=user_dict["role"],
-        id=user_dict["id"]
-    )
+    else:
+        # Only authentik and none modes are supported
+        raise HTTPException(status_code=500, detail="Invalid auth mode. Only 'authentik' and 'none' are supported.")
 
 @app.get("/")
 def root(request: Request):
@@ -178,7 +151,7 @@ def authenticate_none(request: Request):
 auth_pass_fn = (
     authenticate_userpass_authentik if AUTH_MODE == "authentik" 
     else authenticate_none if AUTH_MODE == "none"
-    else authenticate_userpass
+    else None  # No other auth modes supported
 )
 
 @app.get("/login")
@@ -324,53 +297,8 @@ def autoimport_endpoint():
         logger.error(f"Auto-import failed: {e}")
         raise HTTPException(status_code=500, detail=f"Auto-import failed: {e}")
 
-# User management endpoints
-@app.put("/users")
-def add_user_endpoint(createUserRequest: CreateUserRequest, user: User = Depends(validate_admin)):
-    """
-    Adds a user to the database.
-    """
-    try:
-        add_user(createUserRequest.username, createUserRequest.password)
-        return {"status": "ok", "message": "User added successfully"}
-    except Exception as e:
-        logger.error(f"Add user failed: {e}")
-        raise HTTPException(status_code=500, detail="Add user failed")
-
-@app.get("/users")
-def get_users_endpoint(user: User = Depends(validate_admin)):
-    """
-    Retrieves the user details.
-    """
-    try:
-        return get_users_list()
-    except Exception as e:
-        logger.error(f"Get users failed: {e}")
-        raise HTTPException(status_code=500, detail="Get users failed")
-
-@app.delete("/users/{id}")
-def delete_user_endpoint(id: str, user: User = Depends(validate_admin)):
-    """
-    Deletes a user from the database.
-    """
-    try:
-        delete_user(id)
-        return {"status": "ok", "message": "User deleted successfully"}
-    except Exception as e:
-        logger.error(f"Delete user failed: {e}")
-        raise HTTPException(status_code=500, detail="Delete user failed")
-
-@app.post("/change_password")
-def change_password_endpoint(changePasswordRequest: ChangePasswordRequest, user: User = Depends(validate_admin)):
-    """
-    Changes the password for a user.
-    """
-    try:
-        change_password(changePasswordRequest.id, changePasswordRequest.password)
-        return {"status": "ok", "message": "Password changed successfully"}
-    except Exception as e:
-        logger.error(f"Change password failed: {e}")
-        raise HTTPException(status_code=500, detail="Change password failed")
+# User management endpoints removed - local auth no longer supported
+# Only authentik and none auth modes are supported
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)

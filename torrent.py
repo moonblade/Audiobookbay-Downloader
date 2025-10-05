@@ -9,7 +9,6 @@ from constants import (
     DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, LABEL,
     TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT
 )
-from auth import get_users
 from db import get_candidates
 from utils import custom_logger
 
@@ -156,7 +155,6 @@ class TransmissionClient(TorrentClientInterface):
             return []
 
         torrents = response_data.get('arguments', {}).get('torrents', [])
-        all_users = get_users()
         filtered_torrents = []
 
         for torrent in torrents:
@@ -181,11 +179,6 @@ class TransmissionClient(TorrentClientInterface):
                     if label.startswith("username:"):
                         added_by = label.split(":", 1)[1]
                         break
-
-                if not added_by:
-                    added_by_users = [u for u in all_users if u.get("id", "0") in torrent_labels]
-                    if added_by_users:
-                        added_by = added_by_users[0].get("username", "unknown")
 
             candidates = []
             if import_error:
