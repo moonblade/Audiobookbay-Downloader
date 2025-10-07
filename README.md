@@ -23,8 +23,10 @@ A modern web application for searching and downloading audiobooks from Audiobook
 ### Required Configuration
 
 #### Jackett Configuration (Required)
+- Multiple URLs are supported when prefixed JACKETT_API_URL
 ```env
 JACKETT_API_URL=https://jackett.example.com/api/v2.0/indexers/audiobookbay/results
+JACKETT_API_URL1=https://jackett.example.com/api/v2.0/indexers/myanonamouse/results
 JACKETT_API_KEY=your_jackett_api_key
 ```
 
@@ -209,6 +211,7 @@ pip install -r requirements.txt
 # Set environment variables
 export AUTH_MODE=none
 export JACKETT_API_URL=...
+export JACKETT_API_URL2=...
 export JACKETT_API_KEY=...
 # ... other variables
 

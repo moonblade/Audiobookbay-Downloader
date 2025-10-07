@@ -9,6 +9,8 @@ services:
     environment:
       # Jackett Configuration (Internal)
       - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
+      - JACKETT_API_URL2=http://jackett:9117/api/v2.0/indexers/myanonamouse/results
+      - JACKETT_API_URL3=http://jackett:9117/api/v2.0/indexers/1337x/results
       - JACKETT_API_KEY=your_jackett_api_key_here  # Set after Jackett setup
       
       # Transmission Configuration (Internal)
