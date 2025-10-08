@@ -120,11 +120,17 @@ def validate_admin(request: Request):
 @app.get("/")
 def root(request: Request):
     if AUTH_MODE == "none":
-        # Skip login check when auth is disabled
+        # Skip login check when auth is disabled - serve the app directly
         return FileResponse(os.path.join("static", "index.html"))
-    if "user_id" not in request.session:
+    elif AUTH_MODE == "authentik":
+        # For authentik, check if user is authenticated via headers
+        username = request.headers.get("X-authentik-username")
+        if not username and "user_id" not in request.session:
+            return RedirectResponse("/login")
+        return FileResponse(os.path.join("static", "index.html"))
+    else:
+        # Fallback - redirect to login for any other auth mode
         return RedirectResponse("/login")
-    return FileResponse(os.path.join("static", "index.html"))
 
 @app.get("/title")
 def title():
@@ -137,28 +143,27 @@ def role(request: Request, user: User = Depends(authenticate)):
     else:
         return "Invalid credentials"
 
-def authenticate_none(request: Request):
-    """Auto-authenticate as admin when AUTH_MODE is none"""
-    request.session["user_id"] = "admin"
-    request.session["username"] = "admin"
-    request.session["role"] = "admin"
-    return User(username="admin", role="admin", id="admin")
-
-auth_pass_fn = (
-    authenticate_userpass_authentik if AUTH_MODE == "authentik" 
-    else authenticate_none if AUTH_MODE == "none"
-    else None  # No other auth modes supported
-)
+# auth_pass_fn and authenticate_none removed - login endpoint handles auth modes directly
 
 @app.get("/login")
-async def login(request: Request, user: User = Depends(auth_pass_fn)):
-    if user:
-        request.session["user_id"] = user.id
-        request.session["username"] = user.username
-        request.session["role"] = user.role
+async def login(request: Request):
+    if AUTH_MODE == "none":
+        # Auto-login when auth is disabled and redirect to main page
+        request.session["user_id"] = "admin"
+        request.session["username"] = "admin"
+        request.session["role"] = "admin"
         return RedirectResponse("/")
+    elif AUTH_MODE == "authentik":
+        user = authenticate_userpass_authentik(request)
+        if user:
+            request.session["user_id"] = user.id
+            request.session["username"] = user.username
+            request.session["role"] = user.role
+            return RedirectResponse("/")
+        else:
+            return "Invalid credentials"
     else:
-        return "Invalid credentials"
+        raise HTTPException(status_code=500, detail="Invalid auth mode. Only 'authentik' and 'none' are supported.")
 
 @app.get("/logout")
 def logout(request: Request):
