@@ -65,7 +65,6 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
 
 logger = custom_logger(__name__)
-security = HTTPBasic()
 
 def authenticate_authentik(request: Request):
     username = request.headers.get("X-authentik-username")

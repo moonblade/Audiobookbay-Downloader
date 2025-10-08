@@ -1,15 +1,7 @@
-JACKETT_API_KEY:=$(shell cat secrets/jackett.json | jq -r '.JACKETT_API_KEY')
-JACKETT_API_URL:=$(shell cat secrets/jackett.json | jq -r '.JACKETT_API_URL')
-TRANSMISSION_URL:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_URL')
-TRANSMISSION_USER:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_USER')
-TRANSMISSION_PASS:=$(shell cat secrets/transmission.json | jq -r '.TRANSMISSION_PASS')
-DECYPHARR_URL:=$(shell cat secrets/transmission.json | jq -r '.DECYPHARR_URL')
-DECYPHARR_API_KEY:=$(shell cat secrets/transmission.json | jq -r '.DECYPHARR_API_KEY')
-TORRENT_CLIENT_TYPE:=$(shell cat secrets/transmission.json | jq -r '.TORRENT_CLIENT_TYPE')
-BEETS_INPUT_PATH:=$(shell cat secrets/beets.json | jq -r '.BEETS_INPUT_PATH')
-BEETSDIR:=$(shell cat secrets/beets.json | jq -r '.BEETSDIR')
-USE_BEETS_IMPORT:=$(shell cat secrets/beets.json | jq -r '.USE_BEETS_IMPORT')
-ADMIN_ID:=dummy
+# Load environment variables from dev.env file
+include secrets/dev.env
+export
+
 .EXPORT_ALL_VARIABLES:
 
 venv:
