@@ -203,18 +203,37 @@ python main.py
 git clone <repository-url>
 cd audiobookbay-downloader
 
-# Install dependencies
-pip install -r requirements.txt
+# Copy and configure environment variables
+cp secrets/dev.env.sample secrets/dev.env
+# Edit secrets/dev.env with your actual configuration values
 
-# Set environment variables
-export AUTH_MODE=none
-export JACKETT_API_URL=...
-export JACKETT_API_KEY=...
-# ... other variables
+# Create virtual environment
+make venv
+
+# Install dependencies
+make requirements
 
 # Run the application
-python main.py
+make run
 ```
+
+### Makefile Commands
+
+- `make venv` - Create Python virtual environment
+- `make requirements` - Install Python dependencies
+- `make run` - Start the development server
+- `make freeze` - Show installed package versions
+- `make build` - Build Docker image
+
+### Environment Configuration
+
+The application uses environment variables from `secrets/dev.env`. Copy the sample file and update with your values:
+
+```bash
+cp secrets/dev.env.sample secrets/dev.env
+```
+
+Edit `secrets/dev.env` with your actual configuration values for Jackett, torrent client, and other settings.
 
 ## Troubleshooting
 
