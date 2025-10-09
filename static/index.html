@@ -70,6 +70,7 @@ function app() {
     username: null,
     role: null,
     id: null,
+    torrentClientType: null,
 
     async search() {
         if (!this.query) return;
@@ -295,6 +296,7 @@ function app() {
     init() {
         this.fetchRole(); // Call this function to get the role
         this.setTitle();
+        this.fetchTorrentClientType();
     },
 
     async fetchRole() {
@@ -312,6 +314,20 @@ function app() {
             console.error('Error fetching role:', error);
             // Handle error, e.g., redirect to login
             window.location.href = '/login';
+        }
+    },
+
+    async fetchTorrentClientType() {
+        try {
+            const response = await fetch('/torrent-client-type');
+            if (!response.ok) {
+                throw new Error('Failed to fetch torrent client type');
+            }
+            const data = await response.json();
+            this.torrentClientType = data.torrent_client_type;
+        } catch (error) {
+            console.error('Error fetching torrent client type:', error);
+            this.torrentClientType = 'transmission'; // fallback to transmission
         }
     },
 
@@ -517,7 +533,8 @@ function app() {
             
             <!-- Action Buttons - More compact and better aligned -->
             <div class="flex items-center gap-2 flex-shrink-0">
-              <button @click="toggleTorrent(torrent.id, torrent.status)" 
+              <button x-show="torrentClientType !== 'decypharr'" 
+                      @click="toggleTorrent(torrent.id, torrent.status)" 
                       :disabled="deletingTorrent === torrent.id"
                       class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8">
                 <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>

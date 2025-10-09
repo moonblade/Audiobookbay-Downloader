@@ -136,6 +136,10 @@ def root(request: Request):
 def title():
     return {"title": TITLE}
 
+@app.get("/torrent-client-type")
+def get_torrent_client_type():
+    return {"torrent_client_type": TORRENT_CLIENT_TYPE}
+
 @app.get("/role")
 def role(request: Request, user: User = Depends(authenticate)):
     if user:
