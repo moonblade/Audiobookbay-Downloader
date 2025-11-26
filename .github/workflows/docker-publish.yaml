@@ -50,13 +50,6 @@ jobs:
       with:
         context: .
         push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:ts_${{ env.ts }}
-
-    - name: Build and push
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: true
-        platforms: linux/amd64,linux/arm64
-        tags: ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:latest
+        tags: |
+          ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:ts_${{ env.ts }}
+          ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:latest
