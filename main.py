@@ -20,7 +20,7 @@ from torrent_service import (
 from audiobookbay import search_audiobook
 # Local auth phased out - only authentik and none modes supported
 from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE
+from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE
 from db import select_candidate
 from utils import custom_logger
 
@@ -43,6 +43,13 @@ async def lifespan(app: FastAPI):
                 client_type=client_type,
                 url=DECYPHARR_URL,
                 api_key=DECYPHARR_API_KEY
+            )
+        elif client_type == TorrentClientType.qbittorrent:
+            init_torrent_service(
+                client_type=client_type,
+                url=QBITTORRENT_URL,
+                username=QBITTORRENT_USERNAME,
+                password=QBITTORRENT_PASSWORD
             )
 
         logger.info(f"Initialized torrent service with {client_type.value} client")

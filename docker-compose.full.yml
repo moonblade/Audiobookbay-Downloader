@@ -11,11 +11,18 @@ services:
       - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
       - JACKETT_API_KEY=your_jackett_api_key_here  # Set after Jackett setup
       
-      # Transmission Configuration (Internal)
+      # Torrent Client Configuration (Choose one - Transmission is default)
+      # Option 1: Transmission (Internal)
       - TORRENT_CLIENT_TYPE=transmission
       - TRANSMISSION_URL=http://transmission:9091/transmission/rpc
       - TRANSMISSION_USER=admin
       - TRANSMISSION_PASS=password
+      
+      # Option 2: qBittorrent (uncomment to use instead)
+      # - TORRENT_CLIENT_TYPE=qbittorrent
+      # - QBITTORRENT_URL=http://qbittorrent:8080
+      # - QBITTORRENT_USERNAME=admin
+      # - QBITTORRENT_PASSWORD=adminadmin
       
       # App Configuration
       - AUTH_MODE=none                              # Options: authentik, none

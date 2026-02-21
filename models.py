@@ -5,6 +5,7 @@ from typing import Optional
 class TorrentClientType(str, Enum):
     transmission = "transmission"
     decypharr = "decypharr"
+    qbittorrent = "qbittorrent"
 
 class User(BaseModel):
     username: str = "default"

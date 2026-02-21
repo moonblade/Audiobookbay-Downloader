@@ -6,12 +6,15 @@ JACKETT_API_URL = os.getenv("JACKETT_API_URL" "")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
 
 # Torrent client configuration
-TORRENT_CLIENT_TYPE = os.getenv("TORRENT_CLIENT_TYPE", "transmission")  # transmission, decypharr
+TORRENT_CLIENT_TYPE = os.getenv("TORRENT_CLIENT_TYPE", "transmission")  # transmission, decypharr, qbittorrent
 TRANSMISSION_URL = os.getenv("TRANSMISSION_URL", "")
 TRANSMISSION_USER = os.getenv("TRANSMISSION_USER", "")
 TRANSMISSION_PASS = os.getenv("TRANSMISSION_PASS", "")
 DECYPHARR_URL = os.getenv("DECYPHARR_URL", "")
 DECYPHARR_API_KEY = os.getenv("DECYPHARR_API_KEY", "")
+QBITTORRENT_URL = os.getenv("QBITTORRENT_URL", "")
+QBITTORRENT_USERNAME = os.getenv("QBITTORRENT_USERNAME", "")
+QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
 
 LABEL = os.getenv("LABEL", "audiobook")
 

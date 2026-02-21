@@ -18,7 +18,13 @@ services:
       - TRANSMISSION_USER=your_transmission_user
       - TRANSMISSION_PASS=your_transmission_password
       
-      # Option 2: Decypharr (uncomment to use instead of Transmission)
+      # Option 2: qBittorrent (uncomment to use instead of Transmission)
+      # - TORRENT_CLIENT_TYPE=qbittorrent
+      # - QBITTORRENT_URL=https://qbittorrent.example.com
+      # - QBITTORRENT_USERNAME=your_qbittorrent_user
+      # - QBITTORRENT_PASSWORD=your_qbittorrent_password
+      
+      # Option 3: Decypharr (uncomment to use instead of Transmission)
       # - TORRENT_CLIENT_TYPE=decypharr
       # - DECYPHARR_URL=https://decypharr.example.com
       # - DECYPHARR_API_KEY=your_decypharr_api_key

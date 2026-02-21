@@ -7,7 +7,8 @@ from models import User, TorrentClientType
 from constants import (
     ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, 
     DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, LABEL,
-    TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT
+    TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT,
+    QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD
 )
 from db import get_candidates
 from utils import custom_logger
@@ -584,6 +585,302 @@ class DecypharrClient(TorrentClientInterface):
         return 0
 
 
+class QBittorrentClient(TorrentClientInterface):
+    """qBittorrent torrent client implementation using Web API v2"""
+
+    def __init__(self, url: str = "", username: str = "", password: str = ""):
+        self.url = (url or QBITTORRENT_URL).rstrip('/')
+        self.username = username or QBITTORRENT_USERNAME
+        self.password = password or QBITTORRENT_PASSWORD
+        self.session = requests.Session()
+        self._logged_in = False
+
+    def _login(self) -> bool:
+        """Authenticate with qBittorrent and get session cookie"""
+        if self._logged_in:
+            return True
+
+        try:
+            response = self.session.post(
+                f"{self.url}/api/v2/auth/login",
+                data={"username": self.username, "password": self.password},
+                headers={"Referer": self.url}
+            )
+            if response.status_code == 200 and response.text == "Ok.":
+                self._logged_in = True
+                return True
+            logger.error(f"qBittorrent login failed: {response.status_code} - {response.text}")
+            return False
+        except Exception as e:
+            logger.error(f"qBittorrent login error: {e}")
+            return False
+
+    def _make_request(self, method: str, endpoint: str, **kwargs) -> Optional[requests.Response]:
+        """Make authenticated request to qBittorrent API"""
+        if not self._login():
+            return None
+
+        try:
+            url = f"{self.url}/api/v2{endpoint}"
+            logger.debug(f"Making {method} request to {url}")
+            response = self.session.request(method, url, **kwargs)
+            
+            if response.status_code == 403:
+                self._logged_in = False
+                if self._login():
+                    response = self.session.request(method, url, **kwargs)
+                else:
+                    return None
+            
+            return response
+        except Exception as e:
+            logger.error(f"qBittorrent API request failed: {e}")
+            return None
+
+    def _check_user_access(self, user: User, torrent_hash: str) -> bool:
+        """Check if user has access to torrent"""
+        if user.role == "admin":
+            return True
+
+        torrents = self.get_torrents(user)
+        torrent_hashes = [t.get("hash_string", "") for t in torrents]
+        if torrent_hash not in torrent_hashes:
+            logger.warning(f"User {user.id} tried to access torrent {torrent_hash} without permission.")
+            return False
+        return True
+
+    def _ensure_tags_exist(self, tags: List[str]) -> bool:
+        """Ensure tags exist in qBittorrent (create if they don't)"""
+        response = self._make_request('POST', '/torrents/createTags', data={"tags": ",".join(tags)})
+        return response is not None and response.status_code == 200
+
+    def get_torrents(self, user: User) -> List[Dict[str, Any]]:
+        """Get torrents filtered by user permissions"""
+        response = self._make_request('GET', '/torrents/info')
+        if not response or response.status_code != 200:
+            return []
+
+        try:
+            torrents = response.json()
+        except:
+            return []
+
+        filtered_torrents = []
+        for torrent in torrents:
+            tags = torrent.get("tags", "").split(", ") if torrent.get("tags") else []
+            
+            if LABEL not in tags or (user.id not in tags and user.role != "admin"):
+                continue
+
+            status = self._map_torrent_status(torrent.get("state", "unknown"))
+            name = torrent.get("name", "").replace("_", " ").replace("+", " ").replace(".", " ").strip()
+            percent_done = torrent.get("progress", 0) * 100
+            hash_string = torrent.get("hash", "")
+            imported = BEETS_COMPLETE_LABEL in tags
+            import_error = BEETS_ERROR_LABEL in tags
+
+            added_by = None
+            if user.role == "admin":
+                for tag in tags:
+                    if tag.startswith("username:"):
+                        added_by = tag.split(":", 1)[1]
+                        break
+
+            candidates = []
+            if import_error:
+                candidates = get_candidates(hash_string)
+
+            filtered_torrents.append({
+                "id": hash_string,
+                "labels": tags,
+                "name": name,
+                "status": status,
+                "total_size": torrent.get("total_size", 0),
+                "percent_done": percent_done,
+                "downloaded_ever": torrent.get("downloaded", 0),
+                "uploaded_ever": torrent.get("uploaded", 0),
+                "added_date": torrent.get("added_on", 0),
+                "files": [],
+                "use_beets_import": USE_BEETS_IMPORT,
+                "imported": imported,
+                "importError": import_error,
+                "eta": torrent.get("eta", -1),
+                "candidates": candidates,
+                "hash_string": hash_string,
+                "added_by": added_by,
+                "upload_ratio": round(torrent.get("ratio", 0.0), 2)
+            })
+
+        filtered_torrents.sort(key=lambda x: (x["status"] != "Stopped", x["added_date"]), reverse=True)
+        return filtered_torrents
+
+    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
+        """Add torrent to qBittorrent"""
+        if label is None:
+            label = LABEL
+
+        torrent_url = self._get_jackett_magnet(torrent_url)
+
+        user_tags = [label, user.id]
+        if user.username:
+            user_tags.append(f"username:{user.username}")
+        
+        self._ensure_tags_exist(user_tags)
+
+        response = self._make_request(
+            'POST', 
+            '/torrents/add',
+            data={
+                "urls": torrent_url,
+                "tags": ",".join(user_tags)
+            }
+        )
+
+        if response and response.status_code == 200 and response.text == "Ok.":
+            logger.info(f"Successfully added torrent to qBittorrent: {torrent_url}")
+            return True
+        
+        logger.error(f"Failed to add torrent to qBittorrent: {response.text if response else 'No response'}")
+        return False
+
+    def delete_torrent(self, torrent_id: str, user: User, delete_data: bool = True) -> bool:
+        """Delete torrent from qBittorrent"""
+        if not user:
+            return False
+
+        if not self._check_user_access(user, torrent_id):
+            return False
+
+        response = self._make_request(
+            'POST',
+            '/torrents/delete',
+            data={
+                "hashes": torrent_id,
+                "deleteFiles": "true" if delete_data else "false"
+            }
+        )
+
+        if response and response.status_code == 200:
+            logger.info(f"Torrent {torrent_id} {'and its data' if delete_data else ''} deleted successfully.")
+            return True
+        return False
+
+    def pause_torrent(self, torrent_id: str, user: User) -> bool:
+        """Pause torrent in qBittorrent"""
+        if not self._check_user_access(user, torrent_id):
+            return False
+
+        response = self._make_request('POST', '/torrents/pause', data={"hashes": torrent_id})
+        if response and response.status_code == 200:
+            logger.info(f"Torrent {torrent_id} paused successfully.")
+            return True
+        return False
+
+    def resume_torrent(self, torrent_id: str, user: User) -> bool:
+        """Resume/start torrent in qBittorrent"""
+        if not self._check_user_access(user, torrent_id):
+            return False
+
+        response = self._make_request('POST', '/torrents/resume', data={"hashes": torrent_id})
+        if response and response.status_code == 200:
+            logger.info(f"Torrent {torrent_id} started successfully.")
+            return True
+        return False
+
+    def add_label_to_torrent(self, torrent_id: str, user: User, label: str) -> bool:
+        """Add tag to torrent in qBittorrent"""
+        self._ensure_tags_exist([label])
+        
+        tags_to_add = [label]
+        if user:
+            tags_to_add.append(user.id)
+            if user.username:
+                tags_to_add.append(f"username:{user.username}")
+            self._ensure_tags_exist(tags_to_add)
+
+        response = self._make_request(
+            'POST', 
+            '/torrents/addTags', 
+            data={
+                "hashes": torrent_id,
+                "tags": ",".join(tags_to_add)
+            }
+        )
+        return response is not None and response.status_code == 200
+
+    def remove_label_from_torrent(self, torrent_id: str, user: User, label: str) -> bool:
+        """Remove tag from torrent in qBittorrent"""
+        response = self._make_request(
+            'POST',
+            '/torrents/removeTags',
+            data={
+                "hashes": torrent_id,
+                "tags": label
+            }
+        )
+        return response is not None and response.status_code == 200
+
+    def delete_old_torrents(self) -> None:
+        """Delete old completed torrents"""
+        torrents = self.get_torrents(ADMIN_USER_DICT)
+        torrents = [t for t in torrents if (
+            LABEL in t.get("labels", []) and 
+            BEETS_COMPLETE_LABEL in t.get("labels", []) and 
+            BEETS_ERROR_LABEL not in t.get("labels", [])
+        )]
+
+        current_time = time.time()
+        for torrent in torrents:
+            time_difference_days = (current_time - torrent["added_date"]) / (60 * 60 * 24)
+
+            if (time_difference_days > DELETE_AFTER_DAYS and 
+                torrent["upload_ratio"] > 1.0):
+                self.delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=False)
+                logger.info(f"DELETED: {torrent['name']}")
+
+            if time_difference_days > STRICTLY_DELETE_AFTER_DAYS:
+                self.delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=True)
+                logger.info(f"DELETED: {torrent['name']}")
+
+    def _get_jackett_magnet(self, url: str) -> str:
+        """Convert URL to magnet link if needed"""
+        try:
+            if url.startswith("magnet:"):
+                return url
+            response = requests.get(url, allow_redirects=False)
+            if response.status_code in [301, 302]:
+                return response.headers.get("Location", url)
+        except Exception as e:
+            logger.error(f"Error fetching magnet URL: {e}")
+            return url
+        return url
+
+    def _map_torrent_status(self, state: str) -> str:
+        """Map qBittorrent state to readable status"""
+        status_map = {
+            "error": "Error",
+            "missingFiles": "Missing Files",
+            "uploading": "Seeding",
+            "pausedUP": "Stopped",
+            "queuedUP": "Queued to seed",
+            "stalledUP": "Seeding",
+            "checkingUP": "Checking",
+            "forcedUP": "Seeding",
+            "allocating": "Allocating",
+            "downloading": "Downloading",
+            "metaDL": "Downloading metadata",
+            "pausedDL": "Stopped",
+            "queuedDL": "Queued to download",
+            "stalledDL": "Downloading",
+            "checkingDL": "Checking",
+            "forcedDL": "Downloading",
+            "checkingResumeData": "Checking",
+            "moving": "Moving",
+            "unknown": "Unknown"
+        }
+        return status_map.get(state, state)
+
+
 # Factory function to create appropriate client
 def create_torrent_client(client_type: TorrentClientType, **kwargs) -> TorrentClientInterface:
     """Factory function to create torrent client instances"""
@@ -591,6 +888,8 @@ def create_torrent_client(client_type: TorrentClientType, **kwargs) -> TorrentCl
         return TransmissionClient(**kwargs)
     elif client_type == TorrentClientType.decypharr:
         return DecypharrClient(**kwargs)
+    elif client_type == TorrentClientType.qbittorrent:
+        return QBittorrentClient(**kwargs)
     else:
         raise ValueError(f"Unsupported torrent client type: {client_type}")
 

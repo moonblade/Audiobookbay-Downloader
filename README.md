@@ -5,7 +5,7 @@ A modern web application for searching and downloading audiobooks from Audiobook
 ## Features
 
 - 🎧 **Audiobook Search**: Search AudiobookBay via Jackett integration
-- 📥 **Multi-Client Downloads**: Support for Transmission and Decypharr torrent clients
+- 📥 **Multi-Client Downloads**: Support for Transmission, qBittorrent, and Decypharr torrent clients
 - 🔐 **Flexible Authentication**: Support for Authentik SSO and no-auth modes
 - 📚 **Beets Integration**: Optional music library management integration
 - 🌐 **Web UI**: Clean, responsive interface for browsing and managing downloads
@@ -38,7 +38,15 @@ TRANSMISSION_USER=your_transmission_user
 TRANSMISSION_PASS=your_transmission_password
 ```
 
-**Option 2: Decypharr**
+**Option 2: qBittorrent**
+```env
+TORRENT_CLIENT_TYPE=qbittorrent
+QBITTORRENT_URL=https://qbittorrent.example.com
+QBITTORRENT_USERNAME=your_qbittorrent_user
+QBITTORRENT_PASSWORD=your_qbittorrent_password
+```
+
+**Option 3: Decypharr**
 ```env
 TORRENT_CLIENT_TYPE=decypharr
 DECYPHARR_URL=https://decypharr.example.com
@@ -98,7 +106,7 @@ BEETS_ERROR_LABEL=beetserror                # Label for beets processing errors
 
 ### Option 1: External Services (Recommended for existing setups)
 
-Use this when you already have Jackett and Transmission/Decypharr running.
+Use this when you already have Jackett and Transmission/qBittorrent/Decypharr running.
 
 **📁 File:** [`docker-compose.external.yml`](./docker-compose.external.yml)
 
@@ -115,7 +123,7 @@ docker-compose -f docker-compose.external.yml up -d
 # See the complete file: docker-compose.external.yml
 # This compose file includes:
 # - Audiobookbay downloader service
-# - Configuration for external Jackett and Transmission/Decypharr
+# - Configuration for external Jackett and Transmission/qBittorrent/Decypharr
 # - Environment variables for connecting to existing services
 # - Volume mapping for data persistence
 ```
@@ -164,6 +172,12 @@ docker-compose -f docker-compose.full.yml up -d
 1. Access Transmission at `http://localhost:9091`
 2. Set up authentication if required
 3. Update environment variables with credentials
+
+**For qBittorrent:**
+1. Access qBittorrent web UI (default port 8080)
+2. Enable Web UI in settings if not already enabled
+3. Set up authentication credentials
+4. Update environment variables with credentials
 
 **For Decypharr:**
 1. Access Decypharr web interface
