@@ -1,0 +1,304 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  AUDIOBOOKBAY DOWNLOADER - qBittorrent + VPN Stack                           ║
+# ║                                                                              ║
+# ║  A complete, privacy-focused setup for downloading audiobooks:               ║
+# ║  • gluetun      - VPN container (60+ providers supported)                    ║
+# ║  • qBittorrent  - Torrent client (routed through VPN)                        ║
+# ║  • Jackett      - Search indexer for AudiobookBay                            ║
+# ║  • App          - Web UI for searching and managing downloads                ║
+# ║                                                                              ║
+# ║  Features:                                                                   ║
+# ║  🔒 Kill switch - torrents stop if VPN disconnects                           ║
+# ║  🌐 Port forwarding support (provider-dependent)                             ║
+# ║  📁 Bind mounts for easy file access                                         ║
+# ║  🏥 Health checks on all services                                            ║
+# ║                                                                              ║
+# ║  Quick Start:                                                                ║
+# ║  1. Configure VPN credentials below (see examples)                           ║
+# ║  2. docker-compose -f docker-compose-qbittorrent-vpn.yml up -d               ║
+# ║  3. Access Jackett at http://localhost:9117 - add AudiobookBay indexer       ║
+# ║  4. Copy Jackett API key to JACKETT_API_KEY below                            ║
+# ║  5. Access app at http://localhost:9000                                      ║
+# ║                                                                              ║
+# ║  Docs: https://github.com/qdm12/gluetun-wiki                                 ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  VPN PROVIDER CONFIGURATION EXAMPLES                                         ║
+# ║  Uncomment ONE provider section in the 'vpn' service environment below       ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+#
+# === PROTONVPN (OpenVPN) ===
+# - VPN_SERVICE_PROVIDER=protonvpn
+# - OPENVPN_USER=<your-openvpn-username>      # From ProtonVPN account settings
+# - OPENVPN_PASSWORD=<your-openvpn-password>  # From ProtonVPN account settings
+# - SERVER_COUNTRIES=Netherlands
+# - FREE_ONLY=off                             # Set 'on' for free servers only
+#
+# === MULLVAD (WireGuard - recommended for speed) ===
+# - VPN_SERVICE_PROVIDER=mullvad
+# - VPN_TYPE=wireguard
+# - WIREGUARD_PRIVATE_KEY=<your-private-key>  # From Mullvad account
+# - WIREGUARD_ADDRESSES=<your-address>/32     # e.g., 10.66.123.45/32
+# - SERVER_CITIES=Amsterdam
+#
+# === NORDVPN (OpenVPN) ===
+# - VPN_SERVICE_PROVIDER=nordvpn
+# - OPENVPN_USER=<service-credentials-user>   # NOT your login email!
+# - OPENVPN_PASSWORD=<service-credentials-pw> # From NordVPN dashboard > Services
+# - SERVER_COUNTRIES=Netherlands
+#
+# === SURFSHARK (OpenVPN) ===
+# - VPN_SERVICE_PROVIDER=surfshark
+# - OPENVPN_USER=<your-surfshark-user>        # From Surfshark manual setup
+# - OPENVPN_PASSWORD=<your-surfshark-pass>
+# - SERVER_COUNTRIES=Netherlands
+#
+# === PRIVATE INTERNET ACCESS (OpenVPN) ===
+# - VPN_SERVICE_PROVIDER=private internet access
+# - OPENVPN_USER=<your-pia-username>
+# - OPENVPN_PASSWORD=<your-pia-password>
+# - SERVER_REGIONS=Netherlands
+#
+# === IMPORTANT: gluetun requires a valid VPN provider ===
+# There is NO "test mode" - you MUST configure a VPN provider above.
+
+version: '3.8'
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════
+  # VPN Gateway (gluetun)
+  # All qBittorrent traffic is routed through this container
+  # ════════════════════════════════════════════════════════════════════════════
+  vpn:
+    image: qmcgaw/gluetun:v3.39
+    container_name: abb-vpn
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    ports:
+      # qBittorrent WebUI (accessible via VPN container)
+      - "8080:8080"
+      # Torrent listening port
+      - "6881:6881"
+      - "6881:6881/udp"
+    environment:
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  CONFIGURE YOUR VPN PROVIDER HERE                                  ║
+      # ║  See examples above and uncomment the appropriate lines            ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      
+      # === UNCOMMENT AND CONFIGURE ONE PROVIDER ===
+      # ProtonVPN example:
+      # - VPN_SERVICE_PROVIDER=protonvpn
+      # - OPENVPN_USER=your_protonvpn_user
+      # - OPENVPN_PASSWORD=your_protonvpn_password
+      # - SERVER_COUNTRIES=Netherlands
+      
+      # === CONFIGURE YOUR VPN PROVIDER (required) ===
+      # Uncomment ONE provider section from the examples at the top of this file
+      # Example for ProtonVPN:
+      # - VPN_SERVICE_PROVIDER=protonvpn
+      # - OPENVPN_USER=your_protonvpn_user
+      # - OPENVPN_PASSWORD=your_protonvpn_password
+      # - SERVER_COUNTRIES=Netherlands
+      
+      # === Common Settings (usually no changes needed) ===
+      - TZ=UTC
+      - UPDATER_PERIOD=24h
+      # Allow connections from Docker networks
+      - FIREWALL_OUTBOUND_SUBNETS=172.16.0.0/12,192.168.0.0/16
+      # DNS over TLS for privacy
+      - DOT=on
+      - DOT_PROVIDERS=cloudflare
+      
+      # === Port Forwarding (if your provider supports it) ===
+      # Improves torrent connectivity. Supported by: ProtonVPN, PIA, AirVPN
+      - VPN_PORT_FORWARDING=off
+      # - VPN_PORT_FORWARDING_PROVIDER=protonvpn
+      
+    volumes:
+      - ./vpn-config:/gluetun
+    healthcheck:
+      # Check if we can reach the internet through VPN
+      test: ["CMD-SHELL", "wget -q --spider http://ipinfo.io || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # qBittorrent - Torrent Client
+  # Runs inside VPN network - all traffic goes through gluetun
+  # ════════════════════════════════════════════════════════════════════════════
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: abb-qbittorrent
+    # Route ALL traffic through VPN container
+    network_mode: "service:vpn"
+    depends_on:
+      vpn:
+        condition: service_healthy
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - WEBUI_PORT=8080
+      # Temporary password shown in logs on first start
+      # Change it in qBittorrent WebUI: Tools > Options > Web UI
+    volumes:
+      - ./qbittorrent-config:/config
+      - ./downloads:/downloads
+    # NOTE: Ports are NOT exposed here - they're exposed on the 'vpn' container
+    # because this container uses network_mode: "service:vpn"
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Jackett - Search Indexer
+  # Provides AudiobookBay search API for the app
+  # NOTE: Running outside VPN for faster searches (metadata only, no downloads)
+  # ════════════════════════════════════════════════════════════════════════════
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: abb-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - ./jackett-config:/config
+    ports:
+      - "9117:9117"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9117/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Audiobookbay Downloader - Main Application
+  # Web UI for searching and managing audiobook downloads
+  # ════════════════════════════════════════════════════════════════════════════
+  audiobookbay-downloader:
+    image: ghcr.io/moonblade/audiobookbay-downloader:latest
+    # For local development, use: build: .
+    container_name: abb-downloader
+    ports:
+      - "9000:9000"
+    environment:
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  JACKETT CONFIGURATION                                             ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      # Get API key from Jackett WebUI at http://localhost:9117
+      - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
+      - JACKETT_API_KEY=your_jackett_api_key_here
+      
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  QBITTORRENT CONFIGURATION                                         ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      # IMPORTANT: Use 'vpn' as hostname because qBittorrent runs in VPN network
+      - TORRENT_CLIENT_TYPE=qbittorrent
+      - QBITTORRENT_URL=http://vpn:8080
+      - QBITTORRENT_USERNAME=admin
+      # Default password shown in qBittorrent logs on first start
+      # Check with: docker logs abb-qbittorrent 2>&1 | grep -i password
+      - QBITTORRENT_PASSWORD=adminadmin
+      
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  APP CONFIGURATION                                                 ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      - AUTH_MODE=none
+      - TITLE=Audiobook Search
+      - SESSION_KEY=change_this_to_a_random_string_for_security
+      - LABEL=audiobook
+      
+      # Cleanup settings (days before auto-deletion)
+      - DELETE_AFTER_DAYS=14
+      - STRICTLY_DELETE_AFTER_DAYS=30
+      
+      # Admin (only used with AUTH_MODE=authentik)
+      - ADMIN_USER=admin
+      - ADMIN_PASS=YWRtaW4=
+      - ADMIN_ID=e0617896-4560-193c-cc34-653683f99c35
+      - DB_PATH=/tmp
+      
+    volumes:
+      - ./app-data:/tmp
+      - ./downloads:/downloads
+    depends_on:
+      jackett:
+        condition: service_started
+      vpn:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/title"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+# ════════════════════════════════════════════════════════════════════════════════
+# ALTERNATIVE: Jackett through VPN
+# Uncomment this section and comment out the 'jackett' service above if you
+# want Jackett searches to also go through VPN (slower but more private)
+# NOTE: Also add "9117:9117" to the 'vpn' service ports section
+# ════════════════════════════════════════════════════════════════════════════════
+#
+#   jackett-vpn:
+#     image: lscr.io/linuxserver/jackett:latest
+#     container_name: abb-jackett-vpn
+#     network_mode: "service:vpn"
+#     depends_on:
+#       vpn:
+#         condition: service_healthy
+#     environment:
+#       - PUID=1000
+#       - PGID=1000
+#       - TZ=UTC
+#       - AUTO_UPDATE=true
+#     volumes:
+#       - ./jackett-config:/config
+#     restart: unless-stopped
+
+networks:
+  default:
+    name: audiobookbay-vpn-network
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TROUBLESHOOTING
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# 1. Check VPN connection:
+#    docker exec abb-vpn wget -qO- http://ipinfo.io
+#    (Should show VPN server IP, not your real IP)
+#
+# 2. Check qBittorrent can reach internet:
+#    docker exec abb-qbittorrent curl -s http://ipinfo.io
+#    (Should show same IP as VPN container)
+#
+# 3. Get qBittorrent temporary password (first run):
+#    docker logs abb-qbittorrent 2>&1 | grep -i password
+#
+# 4. VPN not connecting:
+#    docker logs abb-vpn
+#    (Check for authentication errors)
+#
+# 5. qBittorrent WebUI not accessible:
+#    - Ensure vpn container is healthy: docker ps
+#    - Check port 8080 is exposed on vpn container
+#
+# 6. App can't connect to qBittorrent:
+#    - Verify QBITTORRENT_URL uses 'vpn' as hostname
+#    - Verify QBITTORRENT_PASSWORD matches what you set in qBittorrent
+#
+# 7. macOS/Colima users:
+#    - Ensure colima is started: colima start
+#    - If /dev/net/tun issues, try: colima start --vm-type vz --vz-rosetta
+#
+# ════════════════════════════════════════════════════════════════════════════════

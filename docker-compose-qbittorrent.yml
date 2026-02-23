@@ -1,0 +1,158 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  AUDIOBOOKBAY DOWNLOADER - qBittorrent Stack (NO VPN)                        ║
+# ║                                                                              ║
+# ║  A simple setup for downloading audiobooks:                                  ║
+# ║  • qBittorrent  - Torrent client                                             ║
+# ║  • Jackett      - Search indexer for AudiobookBay                            ║
+# ║  • App          - Web UI for searching and managing downloads                ║
+# ║                                                                              ║
+# ║  ⚠️  WARNING: This setup does NOT include VPN protection!                     ║
+# ║  For privacy-protected downloads, use docker-compose-qbittorrent-vpn.yml     ║
+# ║                                                                              ║
+# ║  Quick Start:                                                                ║
+# ║  1. docker-compose -f docker-compose-qbittorrent.yml up -d                   ║
+# ║  2. Get qBittorrent temp password: docker logs abb-qbittorrent 2>&1 | grep password
+# ║  3. Update QBITTORRENT_PASSWORD below with the temp password                 ║
+# ║  4. Access Jackett at http://localhost:9117 - add AudiobookBay indexer       ║
+# ║  5. Copy Jackett API key to JACKETT_API_KEY below                            ║
+# ║  6. Restart: docker-compose -f docker-compose-qbittorrent.yml up -d          ║
+# ║  7. Access app at http://localhost:9000                                      ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+services:
+  # ════════════════════════════════════════════════════════════════════════════
+  # qBittorrent - Torrent Client
+  # ════════════════════════════════════════════════════════════════════════════
+  qbittorrent:
+    image: lscr.io/linuxserver/qbittorrent:latest
+    container_name: abb-qbittorrent
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - WEBUI_PORT=8080
+      # Temporary password shown in logs on first start
+      # Change it in qBittorrent WebUI: Tools > Options > Web UI
+    volumes:
+      - ./qbittorrent-config:/config
+      - ./downloads:/downloads
+    ports:
+      - "8080:8080"
+      - "6881:6881"
+      - "6881:6881/udp"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Jackett - Search Indexer
+  # Provides AudiobookBay search API for the app
+  # ════════════════════════════════════════════════════════════════════════════
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: abb-jackett
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=UTC
+      - AUTO_UPDATE=true
+    volumes:
+      - ./jackett-config:/config
+    ports:
+      - "9117:9117"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9117/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    restart: unless-stopped
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # Audiobookbay Downloader - Main Application
+  # Web UI for searching and managing audiobook downloads
+  # ════════════════════════════════════════════════════════════════════════════
+  audiobookbay-downloader:
+    image: ghcr.io/moonblade/audiobookbay-downloader:latest
+    # For local development, use: build: .
+    container_name: abb-downloader
+    ports:
+      - "9000:9000"
+    environment:
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  JACKETT CONFIGURATION                                             ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      # Get API key from Jackett WebUI at http://localhost:9117
+      - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
+      - JACKETT_API_KEY=your_jackett_api_key_here
+      
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  QBITTORRENT CONFIGURATION                                         ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      - TORRENT_CLIENT_TYPE=qbittorrent
+      - QBITTORRENT_URL=http://qbittorrent:8080
+      - QBITTORRENT_USERNAME=admin
+      # Get password from: docker logs abb-qbittorrent 2>&1 | grep -i password
+      - QBITTORRENT_PASSWORD=your_qbittorrent_password_here
+      
+      # ╔════════════════════════════════════════════════════════════════════╗
+      # ║  APP CONFIGURATION                                                 ║
+      # ╚════════════════════════════════════════════════════════════════════╝
+      - AUTH_MODE=none
+      - TITLE=Audiobook Search
+      - SESSION_KEY=change_this_to_a_random_string_for_security
+      - LABEL=audiobook
+      
+      # Cleanup settings (days before auto-deletion)
+      - DELETE_AFTER_DAYS=14
+      - STRICTLY_DELETE_AFTER_DAYS=30
+      
+    volumes:
+      - ./app-data:/tmp
+      - ./downloads:/downloads
+    depends_on:
+      jackett:
+        condition: service_started
+      qbittorrent:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/title"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+
+networks:
+  default:
+    name: audiobookbay-network
+
+# ════════════════════════════════════════════════════════════════════════════════
+# TROUBLESHOOTING
+# ════════════════════════════════════════════════════════════════════════════════
+#
+# 1. Get qBittorrent temporary password (first run):
+#    docker logs abb-qbittorrent 2>&1 | grep -i password
+#
+# 2. qBittorrent WebUI not accessible:
+#    - Check container is running: docker ps
+#    - Check port 8080 is not in use
+#
+# 3. App can't connect to qBittorrent:
+#    - Verify QBITTORRENT_PASSWORD matches what you set in qBittorrent
+#
+# 4. Jackett not finding AudiobookBay:
+#    - Go to http://localhost:9117
+#    - Click "Add Indexer"
+#    - Search for "AudiobookBay" and add it
+#    - Copy the API key from the top of the page
+#
+# 5. AudiobookBay SSL/Cloudflare errors:
+#    - AudiobookBay uses Cloudflare protection
+#    - Consider adding FlareSolverr to bypass (advanced setup)
+#
+# ════════════════════════════════════════════════════════════════════════════════
