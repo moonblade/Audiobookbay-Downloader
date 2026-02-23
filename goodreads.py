@@ -11,42 +11,69 @@ from utils import custom_logger
 
 logger = custom_logger(__name__)
 
-GOODREADS_RSS_URL = "https://www.goodreads.com/review/list_rss/{user_id}?shelf={shelf}"
+# RSS URL with pagination and sorting support
+# sort=date_added&order=d = latest first, per_page max is 200
+GOODREADS_RSS_URL = "https://www.goodreads.com/review/list_rss/{user_id}?shelf={shelf}&sort=date_added&order=d&per_page=200&page={page}"
 
 
-def build_rss_url(user_id: str, shelf: str) -> str:
-    return GOODREADS_RSS_URL.format(user_id=user_id, shelf=shelf)
+def build_rss_url(user_id: str, shelf: str, page: int = 1) -> str:
+    return GOODREADS_RSS_URL.format(user_id=user_id, shelf=shelf, page=page)
 
 
-def fetch_goodreads_shelf(user_id: str, shelf: str) -> List[Dict[str, Any]]:
-    url = build_rss_url(user_id, shelf)
-    logger.info(f"Fetching Goodreads RSS: {url}")
+def fetch_goodreads_shelf(user_id: str, shelf: str, max_pages: int = 10) -> List[Dict[str, Any]]:
+    """
+    Fetch all books from a Goodreads shelf with pagination.
+    Returns books sorted by date_added descending (latest first).
     
-    try:
-        feed = feedparser.parse(url)
+    Args:
+        user_id: Goodreads user ID (numeric)
+        shelf: Shelf name (e.g., 'to-read')
+        max_pages: Maximum pages to fetch (default 10 = up to 2000 books)
+    """
+    all_books = []
+    page = 1
+    
+    while page <= max_pages:
+        url = build_rss_url(user_id, shelf, page)
+        logger.info(f"Fetching Goodreads RSS page {page}: {url}")
         
-        if feed.bozo:
-            logger.error(f"RSS parse error: {feed.bozo_exception}")
-            return []
-        
-        books = []
-        for entry in feed.entries:
-            book = {
-                "book_id": entry.get("book_id", ""),
-                "title": entry.get("title", ""),
-                "author": entry.get("author_name", ""),
-                "isbn": entry.get("isbn", ""),
-                "image_url": entry.get("book_image_url", ""),
-                "date_added": entry.get("user_date_added", ""),
-            }
-            books.append(book)
-        
-        logger.info(f"Found {len(books)} books on shelf '{shelf}'")
-        return books
-        
-    except Exception as e:
-        logger.error(f"Failed to fetch Goodreads RSS: {e}")
-        return []
+        try:
+            feed = feedparser.parse(url)
+            
+            if feed.bozo:
+                logger.error(f"RSS parse error on page {page}: {feed.bozo_exception}")
+                break
+            
+            if not feed.entries:
+                # No more entries, stop pagination
+                logger.info(f"No more entries on page {page}, stopping pagination")
+                break
+            
+            for entry in feed.entries:
+                book = {
+                    "book_id": entry.get("book_id", ""),
+                    "title": entry.get("title", ""),
+                    "author": entry.get("author_name", ""),
+                    "isbn": entry.get("isbn", ""),
+                    "image_url": entry.get("book_image_url", ""),
+                    "date_added": entry.get("user_date_added", ""),
+                }
+                all_books.append(book)
+            
+            logger.info(f"Page {page}: fetched {len(feed.entries)} books (total: {len(all_books)})")
+            
+            # If we got less than 200, we've reached the last page
+            if len(feed.entries) < 200:
+                break
+            
+            page += 1
+            
+        except Exception as e:
+            logger.error(f"Failed to fetch Goodreads RSS page {page}: {e}")
+            break
+    
+    logger.info(f"Total books fetched from shelf '{shelf}': {len(all_books)}")
+    return all_books
 
 
 def download_best_match(title: str, user: User) -> Optional[Dict[str, Any]]:
@@ -108,7 +135,6 @@ def poll_and_download() -> Dict[str, Any]:
         new_downloads = 0
         skipped = 0
         no_results = 0
-        errors = 0
         
         for book in books:
             book_id = book.get("book_id")
