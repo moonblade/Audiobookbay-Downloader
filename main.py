@@ -10,24 +10,55 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.sessions import SessionMiddleware
+from apscheduler.schedulers.background import BackgroundScheduler
+from pydantic import BaseModel
 
-# Updated imports
 from models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
 from torrent_service import (
     init_torrent_service, get_torrents, add_torrent, delete_torrent, 
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents
 )
 from audiobookbay import search_audiobook
-# Local auth phased out - only authentik and none modes supported
 from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE
+from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
 from db import select_candidate
 from utils import custom_logger
+from goodreads import poll_and_download, validate_goodreads_config
+from goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books
+
+logger = custom_logger(__name__)
+
+scheduler = BackgroundScheduler()
+
+
+class GoodreadsConfigRequest(BaseModel):
+    user_id: str
+    shelf: str = "to-read"
+    poll_interval: int = 60
+    enabled: bool = False
+
+
+def setup_goodreads_scheduler():
+    config = get_goodreads_config()
+    
+    scheduler.remove_all_jobs()
+    
+    if config.get("enabled") and config.get("user_id"):
+        poll_interval = config.get("poll_interval", 60)
+        scheduler.add_job(
+            poll_and_download,
+            'interval',
+            minutes=poll_interval,
+            id='goodreads_poll',
+            replace_existing=True
+        )
+        logger.info(f"Goodreads scheduler started with {poll_interval} minute interval")
+    else:
+        logger.info("Goodreads scheduler not started (disabled or not configured)")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan context manager for startup and shutdown events"""
-    # Startup
     try:
         client_type = TorrentClientType(TORRENT_CLIENT_TYPE)
 
@@ -60,18 +91,21 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize torrent service: {e}")
         raise RuntimeError(f"Failed to initialize torrent service: {e}")
     
+    if GOODREADS_ENABLED:
+        setup_goodreads_scheduler()
+        scheduler.start()
+        logger.info("Goodreads integration enabled")
+    
     yield
     
-    # Shutdown - add any cleanup logic here if needed
+    if scheduler.running:
+        scheduler.shutdown()
     logger.info("Application shutdown")
 
-# App configuration
 app = FastAPI(lifespan=lifespan)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.add_middleware(SessionMiddleware, secret_key=SESSION_KEY)
-
-logger = custom_logger(__name__)
 
 def authenticate_authentik(request: Request):
     username = request.headers.get("X-authentik-username")
@@ -84,12 +118,10 @@ def authenticate_authentik(request: Request):
 
 def authenticate(request: Request):
     if AUTH_MODE == "none":
-        # Auto-authenticate as admin when auth is disabled
         return User(username="admin", role="admin", id="admin")
     elif AUTH_MODE == "authentik":
         return authenticate_authentik(request)
     else:
-        # Only authentik and none modes are supported
         raise HTTPException(status_code=500, detail="Invalid auth mode. Only 'authentik' and 'none' are supported.")
 
 def authenticate_userpass_authentik(request: Request):
@@ -104,11 +136,8 @@ def authenticate_userpass_authentik(request: Request):
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
     return User(username=username, role=role, id=id)
 
-# authenticate_userpass removed - local auth no longer supported
-
 def validate_admin(request: Request):
     if AUTH_MODE == "none":
-        # Auto-authenticate as admin when auth is disabled
         return User(username="admin", role="admin", id="admin")
     elif AUTH_MODE == "authentik":
         id = request.session.get("user_id")
@@ -121,22 +150,18 @@ def validate_admin(request: Request):
             id=id
         )
     else:
-        # Only authentik and none modes are supported
         raise HTTPException(status_code=500, detail="Invalid auth mode. Only 'authentik' and 'none' are supported.")
 
 @app.get("/")
 def root(request: Request):
     if AUTH_MODE == "none":
-        # Skip login check when auth is disabled - serve the app directly
         return FileResponse(os.path.join("static", "index.html"))
     elif AUTH_MODE == "authentik":
-        # For authentik, check if user is authenticated via headers
         username = request.headers.get("X-authentik-username")
         if not username and "user_id" not in request.session:
             return RedirectResponse("/login")
         return FileResponse(os.path.join("static", "index.html"))
     else:
-        # Fallback - redirect to login for any other auth mode
         return RedirectResponse("/login")
 
 @app.get("/title")
@@ -147,6 +172,10 @@ def title():
 def get_torrent_client_type():
     return {"torrent_client_type": TORRENT_CLIENT_TYPE}
 
+@app.get("/goodreads-enabled")
+def get_goodreads_enabled():
+    return {"enabled": GOODREADS_ENABLED}
+
 @app.get("/role")
 def role(request: Request, user: User = Depends(authenticate)):
     if user:
@@ -154,12 +183,9 @@ def role(request: Request, user: User = Depends(authenticate)):
     else:
         return "Invalid credentials"
 
-# auth_pass_fn and authenticate_none removed - login endpoint handles auth modes directly
-
 @app.get("/login")
 async def login(request: Request):
     if AUTH_MODE == "none":
-        # Auto-login when auth is disabled and redirect to main page
         request.session["user_id"] = "admin"
         request.session["username"] = "admin"
         request.session["role"] = "admin"
@@ -192,9 +218,6 @@ def search(
     query: str = Query(..., description="Search query"),
     user: User = Depends(authenticate)
 ):
-    """
-    Searches for audiobooks based on the provided query.
-    """
     try:
         results = search_audiobook(query)
         return {"results": results}
@@ -207,9 +230,6 @@ def add(
     torrent: TorrentRequest,
     user: User = Depends(authenticate)
 ):
-    """
-    Adds a torrent to the download queue.
-    """
     try:
         success = add_torrent(torrent.url, user)
         if success:
@@ -222,9 +242,6 @@ def add(
 
 @app.get("/list")
 def list_torrents(user: User = Depends(authenticate)):
-    """
-    Lists all torrents in the download queue.
-    """
     try:
         return get_torrents(user)
     except Exception as e:
@@ -237,9 +254,6 @@ def delete_torrent_endpoint(
     delete_data: bool = Query(True, description="Delete downloaded data as well"),
     user: User = Depends(authenticate)
 ):
-    """
-    Deletes a torrent.
-    """
     try:
         if delete_torrent(torrent_id, user, delete_data=delete_data):
             return {"status": "ok", "message": f"Torrent {torrent_id} deleted successfully."}
@@ -254,9 +268,6 @@ def pause_torrent_endpoint(
     torrent_id: str,
     user: User = Depends(authenticate)
 ):
-    """
-    Pauses a torrent.
-    """
     try:
         if pause_torrent(torrent_id, user):
             return {"status": "ok", "message": f"Torrent {torrent_id} paused successfully."}
@@ -271,9 +282,6 @@ def play_torrent_endpoint(
     torrent_id: str,
     user: User = Depends(authenticate)
 ):
-    """
-    Plays/resumes a torrent.
-    """
     try:
         if resume_torrent(torrent_id, user):
             return {"status": "ok", "message": f"Torrent {torrent_id} resumed successfully."}
@@ -285,9 +293,6 @@ def play_torrent_endpoint(
 
 @app.post("/selectCandidate/{hash_string}/{candidate_id}")
 def select_candidate_endpoint(hash_string: str, candidate_id: str, user: User = Depends(authenticate)):
-    """
-    Selects a candidate for a torrent.
-    """
     try:
         select_candidate(hash_string, candidate_id)
         remove_label_from_torrent_with_hash(hash_string, user, BEETS_ERROR_LABEL)
@@ -298,9 +303,6 @@ def select_candidate_endpoint(hash_string: str, candidate_id: str, user: User = 
 
 @app.post("/autoimport")
 def autoimport_endpoint():
-    """
-    Imports beets audible stuff to new directory.
-    """
     try:
         autoimport()
         delete_old_torrents()
@@ -309,9 +311,77 @@ def autoimport_endpoint():
         logger.error(f"Auto-import failed: {e}")
         raise HTTPException(status_code=500, detail=f"Auto-import failed: {e}")
 
-# User management endpoints removed - local auth no longer supported
-# Only authentik and none auth modes are supported
+
+@app.get("/goodreads/config")
+def get_goodreads_config_endpoint(user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    return get_goodreads_config()
+
+@app.post("/goodreads/config")
+def save_goodreads_config_endpoint(config: GoodreadsConfigRequest, user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    try:
+        result = save_goodreads_config(
+            user_id=config.user_id,
+            shelf=config.shelf,
+            poll_interval=config.poll_interval,
+            enabled=config.enabled
+        )
+        
+        setup_goodreads_scheduler()
+        
+        return result
+    except Exception as e:
+        logger.error(f"Failed to save Goodreads config: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to save config: {e}")
+
+@app.post("/goodreads/validate")
+def validate_goodreads_endpoint(config: GoodreadsConfigRequest, user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    return validate_goodreads_config(config.user_id, config.shelf)
+
+@app.post("/goodreads/poll")
+def trigger_goodreads_poll(user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    try:
+        result = poll_and_download()
+        return result
+    except Exception as e:
+        logger.error(f"Manual poll failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Poll failed: {e}")
+
+@app.get("/goodreads/books")
+def get_processed_books(user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    return get_all_processed_books()
+
+@app.delete("/goodreads/books/{book_id}")
+def delete_processed_book_endpoint(book_id: str, user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    if delete_processed_book(book_id):
+        return {"status": "ok", "message": f"Book {book_id} removed from processed list"}
+    else:
+        raise HTTPException(status_code=404, detail=f"Book {book_id} not found")
+
+@app.delete("/goodreads/books")
+def clear_all_processed_books_endpoint(user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    
+    count = clear_all_processed_books()
+    return {"status": "ok", "message": f"Cleared {count} processed books"}
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)
-
