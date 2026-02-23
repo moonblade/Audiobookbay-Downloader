@@ -10,6 +10,7 @@ A modern web application for searching and downloading audiobooks from Audiobook
 - 📚 **Beets Integration**: Optional music library management integration
 - 🌐 **Web UI**: Clean, responsive interface for browsing and managing downloads
 - 🔄 **Auto-Import**: Automated processing and cleanup of completed downloads
+- 📗 **Goodreads Integration**: Auto-download audiobooks from your Goodreads "to-read" shelf
 - 🏷️ **Label Management**: Organize torrents with custom labels
 
 ## Screenshots
@@ -17,6 +18,14 @@ A modern web application for searching and downloading audiobooks from Audiobook
 ![Search Interface](https://i.imgur.com/mwuvB5z.png)
 
 ![Download Management](https://i.imgur.com/ccUBle0.png)
+
+### Goodreads Integration
+
+![Goodreads Configuration](static/goodreads-config.png)
+
+![Goodreads Validated](static/goodreads-validated.png)
+
+![Search with Goodreads Tab](static/search-with-goodreads-tab.png)
 
 ## Environment Variables
 
@@ -84,6 +93,17 @@ BEETS_INPUT_PATH=/beetsinput                # Input path for beets processing
 BEETS_COMPLETE_LABEL=beets                  # Label for beets-processed torrents
 BEETS_ERROR_LABEL=beetserror                # Label for beets processing errors
 ```
+
+#### Goodreads Integration (Optional)
+```env
+GOODREADS_ENABLED=true                      # Enable Goodreads tab in UI (default: false)
+```
+
+When enabled, a new "Goodreads" tab appears in the web UI where you can configure:
+- **User ID**: Your Goodreads user ID (found in your profile URL)
+- **Shelf**: The shelf to monitor (default: "to-read")
+- **Poll Interval**: How often to check for new books (in minutes, default: 60)
+- **Auto-download**: Enable/disable automatic downloading of new books
 
 ## Authentication Modes
 

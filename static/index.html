@@ -6,28 +6,26 @@
     <title>Search</title>
     <link rel="icon" href="/static/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <!-- Alpine.js loaded after app() definition below -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <style>
-        /* Style for the progress bar */
         .progress-bar {
-            height: 1rem; /* Adjust height as needed */
-            background-color: #e2e8f0; /* Light gray background */
-            border-radius: 0.5rem; /* Rounded corners */
-            overflow: hidden; /* Hide overflow of the filled part */
+            height: 1rem;
+            background-color: #e2e8f0;
+            border-radius: 0.5rem;
+            overflow: hidden;
         }
 
         .progress-bar-fill {
             height: 100%;
-            background-color: #4ade80; /* Green fill color */
+            background-color: #4ade80;
             border-radius: 0.5rem;
-            width: 0%; /* Initial width */
-            transition: width 0.5s ease-in-out; /* Smooth transition */
+            width: 0%;
+            transition: width 0.5s ease-in-out;
         }
     </style>
-</head>
-<script>
-function app() {
+    <script>
+    function app() {
   return {
     query: '',
     results: [],
@@ -40,7 +38,7 @@ function app() {
         'Still searching... Maybe grab a snack?',
         'Patience, young grasshopper...',
         'Wow, this is taking a minute!',
-        'Don’t worry, I got this!',
+        'Don\'t worry, I got this!',
         'Maybe go for a walk?',
         'Still thinking... Almost there!',
         'Finding the best results for you!',
@@ -72,6 +70,15 @@ function app() {
     id: null,
     torrentClientType: null,
 
+    goodreadsEnabled: false,
+    goodreadsConfig: { user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
+    processedBooks: [],
+    loadingGoodreads: false,
+    goodreadsError: '',
+    goodreadsSuccess: '',
+    validationResult: null,
+    pollingNow: false,
+
     async search() {
         if (!this.query) return;
         this.loadingSearch = true;
@@ -80,7 +87,6 @@ function app() {
         this.results = [];
         const shuffledMessages = [...this.funnyMessages].sort(() => Math.random() - 0.5);
 
-        // Start funny messages loop
         let index = 0;
         this.messageInterval = setInterval(() => {
             this.currentFunnyMessage = shuffledMessages[index % shuffledMessages.length];
@@ -159,7 +165,7 @@ function app() {
                 }
             });
     },
-    activeTab: 'search', // Initialize active tab
+    activeTab: 'search',
     query: '',
     results: [],
     loadingSearch: false,
@@ -212,8 +218,8 @@ function app() {
             if (!response.ok) {
                 return response.json().then(err => {throw new Error(err.detail || 'Failed to create user')});
             }
-            this.newUser = { username: '', password: '' }; // Clear form
-            this.getUsers(); // Refresh user list
+            this.newUser = { username: '', password: '' };
+            this.getUsers();
         })
         .catch(error => {
             console.error(error);
@@ -222,8 +228,8 @@ function app() {
     },
 
     startEdit(user) {
-        this.editingUser = { ...user }; // Create a copy for editing
-        this.editPassword = ''; // Clear password field
+        this.editingUser = { ...user };
+        this.editPassword = '';
         this.editError = '';
     },
 
@@ -252,7 +258,7 @@ function app() {
                 return response.json().then(err => {throw new Error(err.detail || 'Failed to change password')});
             }
             this.cancelEdit();
-            this.getUsers(); // Refresh user list
+            this.getUsers();
         })
         .catch(error => {
             console.error(error);
@@ -294,9 +300,10 @@ function app() {
     },
 
     init() {
-        this.fetchRole(); // Call this function to get the role
+        this.fetchRole();
         this.setTitle();
         this.fetchTorrentClientType();
+        this.fetchGoodreadsEnabled();
     },
 
     async fetchRole() {
@@ -306,13 +313,12 @@ function app() {
                 throw new Error('Failed to fetch role');
             }
             const data = await response.json();
-            this.role = data.role;  // Set the role in your Alpine component data
+            this.role = data.role;
             if (this.role === null) {
-                window.location.href = '/login'; // Redirect if not logged in
+                window.location.href = '/login';
             }
         } catch (error) {
             console.error('Error fetching role:', error);
-            // Handle error, e.g., redirect to login
             window.location.href = '/login';
         }
     },
@@ -327,7 +333,132 @@ function app() {
             this.torrentClientType = data.torrent_client_type;
         } catch (error) {
             console.error('Error fetching torrent client type:', error);
-            this.torrentClientType = 'transmission'; // fallback to transmission
+            this.torrentClientType = 'transmission';
+        }
+    },
+
+    async fetchGoodreadsEnabled() {
+        try {
+            const response = await fetch('/goodreads-enabled');
+            if (response.ok) {
+                const data = await response.json();
+                this.goodreadsEnabled = data.enabled;
+            }
+        } catch (error) {
+            console.error('Error fetching goodreads enabled:', error);
+        }
+    },
+
+    async fetchGoodreadsConfig() {
+        this.loadingGoodreads = true;
+        this.goodreadsError = '';
+        try {
+            const response = await fetch('/goodreads/config');
+            if (!response.ok) throw new Error('Failed to fetch config');
+            const data = await response.json();
+            this.goodreadsConfig = data;
+        } catch (error) {
+            this.goodreadsError = error.message;
+        } finally {
+            this.loadingGoodreads = false;
+        }
+    },
+
+    async saveGoodreadsConfig() {
+        this.loadingGoodreads = true;
+        this.goodreadsError = '';
+        this.goodreadsSuccess = '';
+        try {
+            const response = await fetch('/goodreads/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: this.goodreadsConfig.user_id,
+                    shelf: this.goodreadsConfig.shelf,
+                    poll_interval: this.goodreadsConfig.poll_interval,
+                    enabled: this.goodreadsConfig.enabled
+                })
+            });
+            if (!response.ok) throw new Error('Failed to save config');
+            const data = await response.json();
+            this.goodreadsConfig = data;
+            this.goodreadsSuccess = 'Configuration saved successfully!';
+        } catch (error) {
+            this.goodreadsError = error.message;
+        } finally {
+            this.loadingGoodreads = false;
+        }
+    },
+
+    async validateGoodreadsConfig() {
+        this.loadingGoodreads = true;
+        this.validationResult = null;
+        this.goodreadsError = '';
+        try {
+            const response = await fetch('/goodreads/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    user_id: this.goodreadsConfig.user_id,
+                    shelf: this.goodreadsConfig.shelf
+                })
+            });
+            if (!response.ok) throw new Error('Validation request failed');
+            this.validationResult = await response.json();
+        } catch (error) {
+            this.goodreadsError = error.message;
+        } finally {
+            this.loadingGoodreads = false;
+        }
+    },
+
+    async triggerPoll() {
+        this.pollingNow = true;
+        this.goodreadsError = '';
+        this.goodreadsSuccess = '';
+        try {
+            const response = await fetch('/goodreads/poll', { method: 'POST' });
+            if (!response.ok) throw new Error('Poll failed');
+            const result = await response.json();
+            this.goodreadsSuccess = result.message || 'Poll completed';
+            this.fetchGoodreadsConfig();
+            this.fetchProcessedBooks();
+        } catch (error) {
+            this.goodreadsError = error.message;
+        } finally {
+            this.pollingNow = false;
+        }
+    },
+
+    async fetchProcessedBooks() {
+        try {
+            const response = await fetch('/goodreads/books');
+            if (!response.ok) throw new Error('Failed to fetch books');
+            this.processedBooks = await response.json();
+        } catch (error) {
+            console.error('Error fetching processed books:', error);
+        }
+    },
+
+    async deleteProcessedBook(bookId) {
+        try {
+            const response = await fetch(`/goodreads/books/${bookId}`, { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to delete book');
+            this.fetchProcessedBooks();
+        } catch (error) {
+            this.goodreadsError = error.message;
+        }
+    },
+
+    async clearAllBooks() {
+        if (!confirm('Are you sure you want to clear all processed books? This will allow re-downloading.')) return;
+        try {
+            const response = await fetch('/goodreads/books', { method: 'DELETE' });
+            if (!response.ok) throw new Error('Failed to clear books');
+            this.fetchProcessedBooks();
+            this.goodreadsSuccess = 'All processed books cleared';
+        } catch (error) {
+            this.goodreadsError = error.message;
         }
     },
 
@@ -342,7 +473,7 @@ function app() {
     },
 
     async confirmDeleteTorrent() {
-        if (!this.torrentToDelete) return; // Guard clause
+        if (!this.torrentToDelete) return;
         this.deletingTorrent = this.torrentToDelete;
         this.deleteTorrentError = null;
 
@@ -356,7 +487,7 @@ function app() {
                 throw new Error(errorData.detail || 'Failed to delete torrent');
             }
 
-            this.getTorrentStatus(); // Refresh torrent list
+            this.getTorrentStatus();
             this.confirmDelete = false;
             this.torrentToDelete = null;
             this.deletingTorrent = null;
@@ -386,7 +517,7 @@ function app() {
                 throw new Error(errorData.detail || `Failed to ${action} torrent`);
             }
 
-            this.getTorrentStatus(); // Refresh torrent list
+            this.getTorrentStatus();
         } catch (error) {
             console.error(`Error toggling torrent:`, error);
         }
@@ -445,13 +576,16 @@ function app() {
     }
   }
 }
-</script>
+    </script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
 
 <body class="bg-gray-800 text-white p-6" x-data="app()" x-init="init">
 
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
-        <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2 rounded-l': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
-        <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2 rounded-r': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}" class="rounded-r">Status</button>
+        <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
+        <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}">Status</button>
+        <button x-show="goodreadsEnabled" @click="activeTab = 'goodreads'; fetchGoodreadsConfig(); fetchProcessedBooks();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'goodreads', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'goodreads'}" class="rounded-r">Goodreads</button>
     </div>
 
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
@@ -491,10 +625,8 @@ function app() {
       
       <template x-for="torrent in torrentStatus" :key="torrent.id">
         <div class="bg-gray-700 p-4 rounded-lg shadow-md mb-3">
-          <!-- Card Header with Title and Status Indicator -->
           <div class="flex justify-between items-start mb-2">
             <div class="flex items-center gap-2 flex-1">
-              <!-- Status icon on the left for better balance -->
               <div class="flex-shrink-0">
                 <i x-show="torrent.status === 'Seeding'" class="fas fa-arrow-up text-green-500"></i>
                 <i x-show="torrent.status === 'Downloading'" class="fas fa-arrow-down text-blue-500"></i>
@@ -502,16 +634,13 @@ function app() {
               </div>
               <h3 class="font-bold text-sm sm:text-base break-words pr-2" x-text="torrent.name"></h3>
             </div>
-            <!-- Status pill more compact -->
             <div class="flex items-center gap-2" x-show="torrent.use_beets_import">
-              <!-- <span class="text-xs px-2 py-1 rounded bg-gray-600 text-gray-300" x-text="torrent.status"></span> -->
               <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
               <i x-show="torrent.status === 'Seeding' && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500" title="Not Imported"></i>
               <i x-show="torrent.status === 'Seeding' && torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500" title="Imported"></i>
             </div>
           </div>
           
-          <!-- Progress Bar -->
           <div class="h-4 w-full bg-gray-600 rounded-full overflow-hidden mb-3" :style="{backgroundColor: torrent.status === 'Seeding' ? '#4ade80' : '#e2e8f0'}">
             <div class="h-full rounded-full" 
                  :style="{
@@ -520,9 +649,7 @@ function app() {
                  }"></div>
           </div>
           
-          <!-- Content & Action Row - Now spread out better -->
           <div class="flex items-center justify-between">
-            <!-- Info Column with more info displayed in a balanced layout -->
             <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400 flex-1 mr-2">
               <div>Size: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span></div>
               <div x-show="torrent.added_by != ''">Added: <span x-text="torrent.added_by.charAt(0).toUpperCase() + torrent.added_by.slice(1)"></span></div>
@@ -531,7 +658,6 @@ function app() {
               <div x-show="torrent.status === 'Downloading' && torrent.eta">ETA: <span x-text="formatEta(torrent.eta)"></span></div>
             </div>
             
-            <!-- Action Buttons - More compact and better aligned -->
             <div class="flex items-center gap-2 flex-shrink-0">
               <button x-show="torrentClientType !== 'decypharr'" 
                       @click="toggleTorrent(torrent.id, torrent.status)" 
@@ -554,7 +680,6 @@ function app() {
       <p x-show="loadingTorrentStatus" class="text-center text-gray-400">Loading torrent status...</p>
       <p x-show="deleteTorrentError" class="text-red-500 mt-2" x-text="deleteTorrentError"></p>
       
-      <!-- Delete Confirmation Modal -->
       <template x-if="confirmDelete">
     <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4" @click.self="showCandidateDialog = false">
           <div class="bg-gray-700 p-6 rounded-lg w-full max-w-sm">
@@ -572,7 +697,95 @@ function app() {
       </template>
     </div> 
 
-<!-- Candidate Selection Dialog -->
+    <div x-show="activeTab === 'goodreads'" class="max-w-3xl mx-auto mt-6 px-2">
+        <h2 class="text-2xl font-bold mb-4">Goodreads Integration</h2>
+        
+        <p x-show="goodreadsError" class="text-red-500 mb-4" x-text="goodreadsError"></p>
+        <p x-show="goodreadsSuccess" class="text-green-500 mb-4" x-text="goodreadsSuccess"></p>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Configuration</h3>
+            
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Goodreads User ID</label>
+                    <input type="text" x-model="goodreadsConfig.user_id" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="e.g., 54722780">
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Shelf Name</label>
+                    <input type="text" x-model="goodreadsConfig.shelf" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="to-read">
+                </div>
+                
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Poll Interval (minutes)</label>
+                    <input type="number" x-model.number="goodreadsConfig.poll_interval" min="1" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="60">
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" x-model="goodreadsConfig.enabled" id="goodreads-enabled" class="w-4 h-4">
+                    <label for="goodreads-enabled" class="text-sm">Enable automatic polling</label>
+                </div>
+            </div>
+            
+            <div class="flex gap-2 mt-4">
+                <button @click="validateGoodreadsConfig()" :disabled="loadingGoodreads" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Validate
+                </button>
+                <button @click="saveGoodreadsConfig()" :disabled="loadingGoodreads" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Save
+                </button>
+                <button @click="triggerPoll()" :disabled="pollingNow || !goodreadsConfig.user_id" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                    <span x-show="pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Poll Now
+                </button>
+            </div>
+            
+            <div x-show="validationResult" class="mt-3 p-3 rounded" :class="validationResult?.valid ? 'bg-green-900' : 'bg-red-900'">
+                <p x-text="validationResult?.message"></p>
+                <p x-show="validationResult?.book_count" class="text-sm text-gray-300">Books found: <span x-text="validationResult?.book_count"></span></p>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4" x-show="goodreadsConfig.last_poll">
+            <h3 class="text-lg font-semibold mb-2">Last Poll Status</h3>
+            <div class="text-sm text-gray-400 space-y-1">
+                <p>Time: <span class="text-white" x-text="new Date(goodreadsConfig.last_poll).toLocaleString()"></span></p>
+                <p>Status: <span class="text-white" :class="goodreadsConfig.last_poll_status === 'success' ? 'text-green-400' : 'text-red-400'" x-text="goodreadsConfig.last_poll_status"></span></p>
+                <p x-show="goodreadsConfig.last_poll_message">Message: <span class="text-white" x-text="goodreadsConfig.last_poll_message"></span></p>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-lg font-semibold">Processed Books (<span x-text="processedBooks.length"></span>)</h3>
+                <button x-show="processedBooks.length > 0" @click="clearAllBooks()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm">Clear All</button>
+            </div>
+            
+            <p x-show="processedBooks.length === 0" class="text-gray-400 text-sm">No books processed yet.</p>
+            
+            <div class="space-y-2 max-h-96 overflow-y-auto">
+                <template x-for="book in processedBooks" :key="book.book_id">
+                    <div class="flex items-center justify-between bg-gray-600 p-3 rounded">
+                        <div class="flex-1">
+                            <p class="font-semibold" x-text="book.title"></p>
+                            <p class="text-sm text-gray-400" x-text="book.author"></p>
+                            <p class="text-xs" :class="book.status === 'downloaded' ? 'text-green-400' : 'text-yellow-400'">
+                                <span x-text="book.status === 'downloaded' ? '✓ Downloaded' : '⚠ No results'"></span>
+                                <span x-show="book.torrent_name" class="text-gray-500"> - <span x-text="book.torrent_name"></span></span>
+                            </p>
+                        </div>
+                        <button @click="deleteProcessedBook(book.book_id)" class="bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded text-sm ml-2" title="Remove (allows re-download)">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
 <template x-if="showCandidateDialog">
     <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4">
         <div class="bg-gray-700 p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
@@ -596,4 +809,3 @@ function app() {
 </template>
 </body>
 </html>
-

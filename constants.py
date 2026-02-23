@@ -39,3 +39,6 @@ ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = os.getenv("TITLE", "Audiobook Search")
 AUTH_MODE = os.getenv("AUTH_MODE", "none")  # authentik, none
+
+# Goodreads Integration
+GOODREADS_ENABLED = os.getenv("GOODREADS_ENABLED", "false").lower() == "true"
