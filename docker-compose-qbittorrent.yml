@@ -3,20 +3,22 @@
 # ║                                                                              ║
 # ║  A simple setup for downloading audiobooks:                                  ║
 # ║  • qBittorrent  - Torrent client                                             ║
-# ║  • Jackett      - Search indexer for AudiobookBay                            ║
+# ║  • Jackett      - Search indexer (pre-configured with AudiobookBay)          ║
+# ║  • FlareSolverr - Cloudflare bypass for AudiobookBay                         ║
 # ║  • App          - Web UI for searching and managing downloads                ║
 # ║                                                                              ║
 # ║  ⚠️  WARNING: This setup does NOT include VPN protection!                     ║
 # ║  For privacy-protected downloads, use docker-compose-qbittorrent-vpn.yml     ║
 # ║                                                                              ║
 # ║  Quick Start:                                                                ║
-# ║  1. docker-compose -f docker-compose-qbittorrent.yml up -d                   ║
-# ║  2. Get qBittorrent temp password: docker logs abb-qbittorrent 2>&1 | grep password
-# ║  3. Update QBITTORRENT_PASSWORD below with the temp password                 ║
-# ║  4. Access Jackett at http://localhost:9117 - add AudiobookBay indexer       ║
-# ║  5. Copy Jackett API key to JACKETT_API_KEY below                            ║
-# ║  6. Restart: docker-compose -f docker-compose-qbittorrent.yml up -d          ║
-# ║  7. Access app at http://localhost:9000                                      ║
+# ║  1. Copy seed config: cp -r jackett-seed/* jackett-config/                   ║
+# ║  2. docker-compose -f docker-compose-qbittorrent.yml up -d                   ║
+# ║  3. Get qBittorrent temp password: docker logs abb-qbittorrent 2>&1 | grep password
+# ║  4. Update QBITTORRENT_PASSWORD below with the temp password                 ║
+# ║  5. Restart: docker-compose -f docker-compose-qbittorrent.yml up -d          ║
+# ║  6. Access app at http://localhost:9000                                      ║
+# ║                                                                              ║
+# ║  Note: AudiobookBay indexer and FlareSolverr are pre-configured!             ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
 services:
@@ -48,6 +50,28 @@ services:
       start_period: 30s
     restart: unless-stopped
 
+
+  # ════════════════════════════════════════════════════════════════════════════
+  # FlareSolverr - Cloudflare Bypass
+  # Required for AudiobookBay which uses Cloudflare protection
+  # ════════════════════════════════════════════════════════════════════════════
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: abb-flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=UTC
+    ports:
+      - "8191:8191"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8191/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
   # ════════════════════════════════════════════════════════════════════════════
   # Jackett - Search Indexer
   # Provides AudiobookBay search API for the app
@@ -64,6 +88,9 @@ services:
       - ./jackett-config:/config
     ports:
       - "9117:9117"
+    depends_on:
+      flaresolverr:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9117/health"]
       interval: 30s
@@ -88,7 +115,7 @@ services:
       # ╚════════════════════════════════════════════════════════════════════╝
       # Get API key from Jackett WebUI at http://localhost:9117
       - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
-      - JACKETT_API_KEY=your_jackett_api_key_here
+      - JACKETT_API_KEY=abbsearchapikey123456789012345678
       
       # ╔════════════════════════════════════════════════════════════════════╗
       # ║  QBITTORRENT CONFIGURATION                                         ║

@@ -5,6 +5,7 @@
 # ║  • gluetun      - VPN container (60+ providers supported)                    ║
 # ║  • qBittorrent  - Torrent client (routed through VPN)                        ║
 # ║  • Jackett      - Search indexer for AudiobookBay                            ║
+# ║  • FlareSolverr - Cloudflare bypass for AudiobookBay                         ║
 # ║  • App          - Web UI for searching and managing downloads                ║
 # ║                                                                              ║
 # ║  Features:                                                                   ║
@@ -15,11 +16,11 @@
 # ║                                                                              ║
 # ║  Quick Start:                                                                ║
 # ║  1. Configure VPN credentials below (see examples)                           ║
-# ║  2. docker-compose -f docker-compose-qbittorrent-vpn.yml up -d               ║
-# ║  3. Access Jackett at http://localhost:9117 - add AudiobookBay indexer       ║
-# ║  4. Copy Jackett API key to JACKETT_API_KEY below                            ║
-# ║  5. Access app at http://localhost:9000                                      ║
+# ║  2. Copy seed config: cp -r jackett-seed/* jackett-config/                   ║
+# ║  3. docker-compose -f docker-compose-qbittorrent-vpn.yml up -d               ║
+# ║  4. Access app at http://localhost:9000                                      ║
 # ║                                                                              ║
+# ║  Note: AudiobookBay indexer and FlareSolverr are pre-configured!             ║
 # ║  Docs: https://github.com/qdm12/gluetun-wiki                                 ║
 # ╚══════════════════════════════════════════════════════════════════════════════╝
 
@@ -156,6 +157,27 @@ services:
     restart: unless-stopped
 
   # ════════════════════════════════════════════════════════════════════════════
+  # FlareSolverr - Cloudflare Bypass
+  # Required for AudiobookBay which uses Cloudflare protection
+  # ════════════════════════════════════════════════════════════════════════════
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    container_name: abb-flaresolverr
+    environment:
+      - LOG_LEVEL=info
+      - LOG_HTML=false
+      - CAPTCHA_SOLVER=none
+      - TZ=UTC
+    ports:
+      - "8191:8191"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8191/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+  # ════════════════════════════════════════════════════════════════════════════
   # Jackett - Search Indexer
   # Provides AudiobookBay search API for the app
   # NOTE: Running outside VPN for faster searches (metadata only, no downloads)
@@ -172,6 +194,9 @@ services:
       - ./jackett-config:/config
     ports:
       - "9117:9117"
+    depends_on:
+      flaresolverr:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9117/health"]
       interval: 30s
@@ -196,7 +221,7 @@ services:
       # ╚════════════════════════════════════════════════════════════════════╝
       # Get API key from Jackett WebUI at http://localhost:9117
       - JACKETT_API_URL=http://jackett:9117/api/v2.0/indexers/audiobookbay/results
-      - JACKETT_API_KEY=your_jackett_api_key_here
+      - JACKETT_API_KEY=abbsearchapikey123456789012345678
       
       # ╔════════════════════════════════════════════════════════════════════╗
       # ║  QBITTORRENT CONFIGURATION                                         ║
