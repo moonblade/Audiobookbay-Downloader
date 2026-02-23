@@ -157,6 +157,68 @@ docker-compose -f docker-compose.full.yml up -d
 
 </details>
 
+### Option 3: qBittorrent Stack (Complete setup without VPN)
+
+Use this for a complete setup with qBittorrent as the torrent client (without VPN).
+
+**📁 File:** [`docker-compose-qbittorrent.yml`](./docker-compose-qbittorrent.yml)
+
+```bash
+# Download and use the qBittorrent compose file
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose-qbittorrent.yml
+docker-compose -f docker-compose-qbittorrent.yml up -d
+```
+
+<details>
+<summary>View docker-compose-qbittorrent.yml content</summary>
+
+```yaml
+# See the complete file: docker-compose-qbittorrent.yml
+# This compose file includes:
+# - Audiobookbay downloader service
+# - qBittorrent service with LinuxServer.io image
+# - Jackett service pre-configured for AudiobookBay
+# - Shared volumes for downloads and configuration
+# - Internal networking between services
+```
+
+</details>
+
+### Option 4: qBittorrent + VPN Stack (Privacy-focused setup)
+
+Use this for a complete, privacy-focused setup with qBittorrent running behind a VPN (gluetun).
+
+**📁 File:** [`docker-compose-qbittorrent-vpn.yml`](./docker-compose-qbittorrent-vpn.yml)
+
+```bash
+# Download and use the VPN compose file
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose-qbittorrent-vpn.yml
+docker-compose -f docker-compose-qbittorrent-vpn.yml up -d
+```
+
+**Features:**
+- 🔒 Kill switch - torrents stop if VPN disconnects
+- 🌐 60+ VPN providers supported (ProtonVPN, Mullvad, NordVPN, etc.)
+- 📁 Bind mounts for easy file access
+- 🏥 Health checks on all services
+
+<details>
+<summary>View docker-compose-qbittorrent-vpn.yml content</summary>
+
+```yaml
+# See the complete file: docker-compose-qbittorrent-vpn.yml
+# This compose file includes:
+# - gluetun VPN container (configure your provider)
+# - qBittorrent routed through VPN
+# - Jackett service for AudiobookBay search
+# - Audiobookbay downloader service
+# - Kill switch protection
+```
+
+</details>
+
+**Supported VPN Providers:** ProtonVPN, Mullvad, NordVPN, Surfshark, Private Internet Access, and [60+ more](https://github.com/qdm12/gluetun-wiki).
+
 ## Initial Setup
 
 ### 1. Configure Jackett
