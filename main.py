@@ -236,7 +236,7 @@ def add(
     user: User = Depends(authenticate)
 ):
     try:
-        success = add_torrent(torrent.url, user)
+        success = add_torrent(torrent.url, user, category=torrent.category)
         if success:
             return {"status": "ok", "message": "Torrent added successfully"}
         else:

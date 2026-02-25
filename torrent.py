@@ -8,7 +8,7 @@ from constants import (
     ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, 
     DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, LABEL,
     TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT,
-    QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD
+    QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, QBITTORRENT_CATEGORY
 )
 from db import get_candidates
 from utils import custom_logger
@@ -25,8 +25,8 @@ class TorrentClientInterface(ABC):
         pass
 
     @abstractmethod
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
-        """Add a torrent from URL/magnet link"""
+    def add_torrent(self, torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
+        """Add a torrent from URL/magnet link. Category is optional (qBittorrent only)."""
         pass
 
     @abstractmethod
@@ -210,8 +210,8 @@ class TransmissionClient(TorrentClientInterface):
         filtered_torrents.sort(key=lambda x: (x["status"] != "Stopped", x["added_date"]), reverse=True)
         return filtered_torrents
 
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
-        """Add torrent to Transmission"""
+    def add_torrent(self, torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
+        """Add torrent to Transmission (category parameter ignored - Transmission uses labels)"""
         if label is None:
             label = LABEL
 
@@ -510,8 +510,8 @@ class DecypharrClient(TorrentClientInterface):
             return False
         return True
 
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
-        """Add torrent to Decypharr using the /api/add endpoint"""
+    def add_torrent(self, torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
+        """Add torrent to Decypharr using the /api/add endpoint (category parameter ignored)"""
         # Use Decypharr's native add endpoint
         result = self.add_content(torrent_url)
         if result and (result.get("results") or result.get("success")):
@@ -714,7 +714,7 @@ class QBittorrentClient(TorrentClientInterface):
         filtered_torrents.sort(key=lambda x: (x["status"] != "Stopped", x["added_date"]), reverse=True)
         return filtered_torrents
 
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
+    def add_torrent(self, torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
         """Add torrent to qBittorrent"""
         if label is None:
             label = LABEL
@@ -727,13 +727,21 @@ class QBittorrentClient(TorrentClientInterface):
         
         self._ensure_tags_exist(user_tags)
 
+        # Build request data
+        data = {
+            "urls": torrent_url,
+            "tags": ",".join(user_tags)
+        }
+        
+        # Add category if provided (either from parameter or env var)
+        effective_category = category or QBITTORRENT_CATEGORY
+        if effective_category:
+            data["category"] = effective_category
+
         response = self._make_request(
             'POST', 
             '/torrents/add',
-            data={
-                "urls": torrent_url,
-                "tags": ",".join(user_tags)
-            }
+            data=data
         )
 
         if response and response.status_code == 200 and response.text == "Ok.":

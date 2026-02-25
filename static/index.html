@@ -69,6 +69,7 @@
     role: null,
     id: null,
     torrentClientType: null,
+    qbittorrentCategory: '',
 
     goodreadsEnabled: false,
     goodreadsConfig: { user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
@@ -118,10 +119,14 @@
 
         
         try {
+            let requestBody = { url };
+            if (this.torrentClientType === 'qbittorrent' && this.qbittorrentCategory) {
+                requestBody.category = this.qbittorrentCategory;
+            }
             let response = await fetch('/add', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ url })
+                body: JSON.stringify(requestBody)
             });
             let data = await response.json();
             if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
@@ -596,6 +601,11 @@
                 <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
                 Search
             </button>
+        </div>
+        <div x-show="torrentClientType === 'qbittorrent'" class="mt-3">
+            <label class="block text-sm text-gray-400 mb-1">qBittorrent Category (optional)</label>
+            <input type="text" x-model="qbittorrentCategory" class="border p-2 w-full rounded bg-gray-600 text-white" placeholder="e.g., audiobooks">
+            <p class="text-xs text-gray-500 mt-1">Downloads will be saved to the category's configured path in qBittorrent</p>
         </div>
         <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
         <p x-show="loadingSearch" class="text-gray-400 mt-2 italic" x-text="currentFunnyMessage"></p>

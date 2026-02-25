@@ -55,6 +55,20 @@ QBITTORRENT_USERNAME=your_qbittorrent_user
 QBITTORRENT_PASSWORD=your_qbittorrent_password
 ```
 
+**qBittorrent Category Support (Optional)**
+
+When using qBittorrent, you can specify a category for downloads. Categories in qBittorrent allow you to automatically save downloads to specific paths. To use this feature:
+
+1. Create a category in qBittorrent (Options → Downloads → Default Save Path for categories)
+2. Set the save path for the category
+3. Either set a default category via environment variable or specify per-download in the UI:
+
+```env
+QBITTORRENT_CATEGORY=audiobooks             # Default category for all downloads (optional)
+```
+
+When a category is specified, qBittorrent will save downloads to that category's configured save path instead of the default download location.
+
 **Option 3: Decypharr**
 ```env
 TORRENT_CLIENT_TYPE=decypharr
