@@ -140,7 +140,11 @@ class ProgrammaticImportSession(importer.ImportSession):
 
 def getFolders(torrent):
     folders = set()
-    for file in torrent.get("files"):
+    files = torrent.get("files", [])
+    if not files:
+        logger.warning(f"No files found for torrent {torrent.get('name')} - skipping")
+        return []
+    for file in files:
         folders.add(os.path.join(BEETS_INPUT_PATH, file.get("name").split("/")[0]))
     return list(folders)
 
@@ -157,6 +161,9 @@ def autoimport():
                 continue
             logger.info(f"Processing {torrent['name']}")
             folders = getFolders(torrent)
+            if not folders:
+                logger.warning(f"Skipping {torrent['name']} - no folders to process")
+                continue
             session = ProgrammaticImportSession(
                 lib,
                 loghandler=logger,

@@ -667,6 +667,17 @@ class QBittorrentClient(TorrentClientInterface):
         response = self._make_request('POST', '/torrents/createTags', data={"tags": ",".join(tags)})
         return response is not None and response.status_code == 200
 
+    def _get_torrent_files(self, torrent_hash: str) -> List[Dict[str, Any]]:
+        """Get files for a specific torrent"""
+        response = self._make_request('GET', '/torrents/files', params={"hash": torrent_hash})
+        if not response or response.status_code != 200:
+            return []
+        try:
+            return response.json()
+        except:
+            return []
+
+
     def get_torrents(self, user: User) -> List[Dict[str, Any]]:
         """Get torrents filtered by user permissions"""
         response = self._make_request('GET', '/torrents/info')
@@ -703,6 +714,9 @@ class QBittorrentClient(TorrentClientInterface):
             if import_error:
                 candidates = get_candidates(hash_string)
 
+
+            # Fetch files for this torrent (for beets integration)
+            files = self._get_torrent_files(hash_string)
             filtered_torrents.append({
                 "id": hash_string,
                 "labels": tags,
@@ -713,7 +727,7 @@ class QBittorrentClient(TorrentClientInterface):
                 "downloaded_ever": torrent.get("downloaded", 0),
                 "uploaded_ever": torrent.get("uploaded", 0),
                 "added_date": torrent.get("added_on", 0),
-                "files": [],
+                "files": files,
                 "use_beets_import": USE_BEETS_IMPORT,
                 "imported": imported,
                 "importError": import_error,

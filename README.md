@@ -113,6 +113,9 @@ STRICTLY_DELETE_AFTER_DAYS=30               # Days before force deletion
 ```
 
 #### Beets Integration (Optional)
+
+**Note:** Beets integration is supported with Transmission and qBittorrent clients only. Decypharr does not support beets integration due to API limitations (no label/file management APIs).
+
 ```env
 USE_BEETS_IMPORT=false                      # Enable beets music library integration
 BEETSDIR=/config                            # Beets configuration directory

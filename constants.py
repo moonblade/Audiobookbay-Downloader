@@ -32,7 +32,7 @@ STRICTLY_DELETE_AFTER_DAYS = int(os.getenv("STRICTLY_DELETE_AFTER_DAYS", 30))
 BEETS_DIR = os.getenv("BEETSDIR", "/config")
 BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
 BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
-USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE == "transmission"        
+USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE != "decypharr"
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
 ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)
 
