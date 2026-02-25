@@ -80,6 +80,13 @@ class TorrentService:
             logger.error(f"Error removing label from torrent {torrent_id}: {e}")
             return False
 
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category for a torrent (qBittorrent only)"""
+        try:
+            return self.client.set_category(torrent_id, user, category)
+        except Exception as e:
+            logger.error(f"Error setting category for torrent {torrent_id}: {e}")
+            return False
     def remove_label_from_torrent_with_hash(self, hash_string: str, user: User, label: str) -> bool:
         """Remove label from torrent by hash"""
         try:
@@ -156,3 +163,6 @@ def delete_old_torrents() -> None:
     """Delete old completed torrents"""
     get_torrent_service().delete_old_torrents()
 
+def set_category(torrent_id: str, user: User, category: str) -> bool:
+    """Set category for a torrent (qBittorrent only)"""
+    return get_torrent_service().set_category(torrent_id, user, category)

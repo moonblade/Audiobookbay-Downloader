@@ -15,7 +15,6 @@ class User(BaseModel):
 # Request models moved from main.py
 class TorrentRequest(BaseModel):
     url: str
-    category: Optional[str] = None
 
 class CreateUserRequest(BaseModel):
     username: str

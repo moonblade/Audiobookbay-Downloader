@@ -54,6 +54,11 @@ class TorrentClientInterface(ABC):
         """Remove label from torrent"""
         pass
 
+    @abstractmethod
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category for a torrent (qBittorrent only, no-op for others)"""
+        pass
+
     def delete_old_torrents(self) -> None:
         """Delete old completed torrents - optional implementation"""
         pass
@@ -393,6 +398,10 @@ class TransmissionClient(TorrentClientInterface):
         }
         return status_map.get(status_code, "Unknown")
 
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category - not supported in Transmission (uses labels instead)"""
+        logger.warning("Transmission does not support categories - use labels instead")
+        return False
 
 class DecypharrClient(TorrentClientInterface):
     """Decypharr torrent client implementation"""
@@ -555,6 +564,10 @@ class DecypharrClient(TorrentClientInterface):
         logger.warning("Decypharr remove label feature not implemented")
         return False
 
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category - not supported in Decypharr"""
+        logger.warning("Decypharr does not support categories")
+        return False
     def delete_old_torrents(self) -> None:
         """Decypharr handles cleanup automatically via debrid services"""
         logger.info("Decypharr handles torrent cleanup automatically via debrid services")
@@ -828,6 +841,24 @@ class QBittorrentClient(TorrentClientInterface):
         )
         return response is not None and response.status_code == 200
 
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category for a torrent in qBittorrent"""
+        if not self._check_user_access(user, torrent_id):
+            return False
+
+        response = self._make_request(
+            'POST',
+            '/torrents/setCategory',
+            data={
+                "hashes": torrent_id,
+                "category": category
+            }
+        )
+        if response and response.status_code == 200:
+            logger.info(f"Set category '{category}' for torrent {torrent_id}")
+            return True
+        logger.error(f"Failed to set category for torrent {torrent_id}: {response.text if response else 'No response'}")
+        return False
     def delete_old_torrents(self) -> None:
         """Delete old completed torrents"""
         torrents = self.get_torrents(ADMIN_USER_DICT)
