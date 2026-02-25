@@ -16,8 +16,8 @@
 # ║                                                                              ║
 # ║  Quick Start:                                                                ║
 # ║  1. Configure VPN credentials below (see examples)                           ║
-# ║  2. Copy seed config: cp -r jackett-seed/* jackett-config/                   ║
-# ║  3. docker-compose -f docker-compose-qbittorrent-vpn.yml up -d               ║
+# ║  2. Copy seed config: cp -r jackett-seed/* example/jackett-config/           ║
+# ║  3. docker compose -f example/docker-compose-qbittorrent-vpn.yml up -d        ║
 # ║  4. Access app at http://localhost:9000                                      ║
 # ║                                                                              ║
 # ║  Note: AudiobookBay indexer and FlareSolverr are pre-configured!             ║
@@ -73,7 +73,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   vpn:
     image: qmcgaw/gluetun:v3.39
-    container_name: abb-vpn
     cap_add:
       - NET_ADMIN
     devices:
@@ -136,7 +135,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: abb-qbittorrent
     # Route ALL traffic through VPN container
     network_mode: "service:vpn"
     depends_on:
@@ -162,7 +160,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: abb-flaresolverr
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
@@ -184,7 +181,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   jackett:
     image: lscr.io/linuxserver/jackett:latest
-    container_name: abb-jackett
     environment:
       - PUID=1000
       - PGID=1000
@@ -211,8 +207,7 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   audiobookbay-downloader:
     image: ghcr.io/moonblade/audiobookbay-downloader:latest
-    # For local development, use: build: .
-    container_name: abb-downloader
+    platform: linux/amd64
     ports:
       - "9000:9000"
     environment:
@@ -291,27 +286,25 @@ services:
 #       - ./jackett-config:/config
 #     restart: unless-stopped
 
-networks:
-  default:
-    name: audiobookbay-vpn-network
+
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TROUBLESHOOTING
 # ════════════════════════════════════════════════════════════════════════════════
 #
 # 1. Check VPN connection:
-#    docker exec abb-vpn wget -qO- http://ipinfo.io
+#    docker compose -f example/docker-compose-qbittorrent-vpn.yml exec vpn wget -qO- http://ipinfo.io
 #    (Should show VPN server IP, not your real IP)
 #
 # 2. Check qBittorrent can reach internet:
-#    docker exec abb-qbittorrent curl -s http://ipinfo.io
+#    docker compose -f example/docker-compose-qbittorrent-vpn.yml exec qbittorrent curl -s http://ipinfo.io
 #    (Should show same IP as VPN container)
 #
 # 3. Get qBittorrent temporary password (first run):
-#    docker logs abb-qbittorrent 2>&1 | grep -i password
+#    docker compose -f example/docker-compose-qbittorrent-vpn.yml logs qbittorrent 2>&1 | grep -i password
 #
 # 4. VPN not connecting:
-#    docker logs abb-vpn
+#    docker compose -f example/docker-compose-qbittorrent-vpn.yml logs vpn
 #    (Check for authentication errors)
 #
 # 5. qBittorrent WebUI not accessible:

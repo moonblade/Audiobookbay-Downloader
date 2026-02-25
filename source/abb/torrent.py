@@ -3,15 +3,15 @@ import json
 import requests
 import time
 from typing import List, Dict, Any, Optional
-from models import User, TorrentClientType
-from constants import (
+from .models import User, TorrentClientType
+from .constants import (
     ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, 
     DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, LABEL,
     TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT,
     QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, QBITTORRENT_CATEGORY
 )
-from db import get_candidates
-from utils import custom_logger
+from .db import get_candidates
+from .utils import custom_logger
 
 logger = custom_logger(__name__)
 
@@ -945,4 +945,3 @@ def create_torrent_client(client_type: TorrentClientType, **kwargs) -> TorrentCl
         return QBittorrentClient(**kwargs)
     else:
         raise ValueError(f"Unsupported torrent client type: {client_type}")
-

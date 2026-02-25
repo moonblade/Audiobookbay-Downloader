@@ -1,6 +1,6 @@
 import os
 
-from models import User
+from .models import User
 
 JACKETT_API_URL = os.getenv("JACKETT_API_URL", "")
 JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")

@@ -4,6 +4,7 @@ __pycache__
 temp
 example/jackett
 example/transmission
+scripts/legacy/__pycache__/
 
 # Local/dev scratch (do not commit)
 app-data/

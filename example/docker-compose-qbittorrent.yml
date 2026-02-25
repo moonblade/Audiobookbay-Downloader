@@ -8,14 +8,14 @@
 # ║  • App          - Web UI for searching and managing downloads                ║
 # ║                                                                              ║
 # ║  ⚠️  WARNING: This setup does NOT include VPN protection!                     ║
-# ║  For privacy-protected downloads, use docker-compose-qbittorrent-vpn.yml     ║
+# ║  For privacy-protected downloads, use example/docker-compose-qbittorrent-vpn.yml ║
 # ║                                                                              ║
 # ║  Quick Start:                                                                ║
-# ║  1. Copy seed config: cp -r jackett-seed/* jackett-config/                   ║
-# ║  2. docker-compose -f docker-compose-qbittorrent.yml up -d                   ║
-# ║  3. Get qBittorrent temp password: docker logs abb-qbittorrent 2>&1 | grep password
+# ║  1. Copy seed config: cp -r jackett-seed/* example/jackett-config/           ║
+# ║  2. docker-compose -f example/docker-compose-qbittorrent.yml up -d           ║
+# ║  3. Get qBittorrent temp password: docker compose -f example/docker-compose-qbittorrent.yml logs qbittorrent 2>&1 | grep -i password
 # ║  4. Update QBITTORRENT_PASSWORD below with the temp password                 ║
-# ║  5. Restart: docker-compose -f docker-compose-qbittorrent.yml up -d          ║
+# ║  5. Restart: docker-compose -f example/docker-compose-qbittorrent.yml up -d  ║
 # ║  6. Access app at http://localhost:9000                                      ║
 # ║                                                                              ║
 # ║  Note: AudiobookBay indexer and FlareSolverr are pre-configured!             ║
@@ -27,7 +27,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   qbittorrent:
     image: lscr.io/linuxserver/qbittorrent:latest
-    container_name: abb-qbittorrent
     environment:
       - PUID=1000
       - PGID=1000
@@ -57,7 +56,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   flaresolverr:
     image: ghcr.io/flaresolverr/flaresolverr:latest
-    container_name: abb-flaresolverr
     environment:
       - LOG_LEVEL=info
       - LOG_HTML=false
@@ -78,7 +76,6 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   jackett:
     image: lscr.io/linuxserver/jackett:latest
-    container_name: abb-jackett
     environment:
       - PUID=1000
       - PGID=1000
@@ -105,8 +102,7 @@ services:
   # ════════════════════════════════════════════════════════════════════════════
   audiobookbay-downloader:
     image: ghcr.io/moonblade/audiobookbay-downloader:latest
-    # For local development, use: build: .
-    container_name: abb-downloader
+    platform: linux/amd64
     ports:
       - "9000:9000"
     environment:
@@ -154,16 +150,14 @@ services:
       start_period: 40s
     restart: unless-stopped
 
-networks:
-  default:
-    name: audiobookbay-network
+
 
 # ════════════════════════════════════════════════════════════════════════════════
 # TROUBLESHOOTING
 # ════════════════════════════════════════════════════════════════════════════════
 #
 # 1. Get qBittorrent temporary password (first run):
-#    docker logs abb-qbittorrent 2>&1 | grep -i password
+#    docker compose -f example/docker-compose-qbittorrent.yml logs qbittorrent 2>&1 | grep -i password
 #
 # 2. qBittorrent WebUI not accessible:
 #    - Check container is running: docker ps

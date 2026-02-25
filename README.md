@@ -17,7 +17,29 @@ A modern web application for searching and downloading audiobooks from Audiobook
 
 ![Search Interface](https://i.imgur.com/mwuvB5z.png)
 
-![Download Management](https://i.imgur.com/ccUBle0.png)
+![Download Management](static/status-page-category-button.png)
+
+## Quick Start (Docker)
+
+If you just want it running locally, use one of the ready-made Docker Compose files in `example/`.
+
+1. Install Docker.
+2. Start the stack:
+
+```bash
+docker compose -f example/docker-compose.full.yml up -d
+```
+
+3. Open the web UI: http://localhost:9000
+
+> Tip: The first time you bring this up, you still need to configure Jackett (API key + indexer).
+
+### Which compose file should I use?
+
+- **Full stack (Transmission + Jackett)**: `example/docker-compose.full.yml`
+- **External services** (you already run Jackett + torrent client): `example/docker-compose.external.yml`
+- **qBittorrent stack** (no VPN): `example/docker-compose-qbittorrent.yml`
+- **qBittorrent + VPN**: `example/docker-compose-qbittorrent-vpn.yml`
 
 ### Goodreads Integration
 
@@ -217,12 +239,6 @@ services:
       - ./audiobooks:/audiobooks
 ```
 
-> macOS tip: if Docker isn't running, you can start it via Colima:
->
-> ```bash
-> colima start
-> ```
-
 #### 4) How it works in ABB
 
 1. Torrent completes and enters **Seeding**.
@@ -243,7 +259,7 @@ If you want to test the candidate-selection UI without waiting for a real torren
 
 **Beets import needs manual selection**
 
-![Beets Import Error + Candidate Selection](static/beets-import-error.png)
+![Beets Import Error + Candidate Selection](static/status-page-category-button.png)
 
 #### Resources
 
@@ -286,19 +302,19 @@ When enabled, a new "Goodreads" tab appears in the web UI where you can configur
 
 Use this when you already have Jackett and Transmission/qBittorrent/Decypharr running.
 
-**📁 File:** [`docker-compose.external.yml`](./docker-compose.external.yml)
+**📁 File:** [`example/docker-compose.external.yml`](./example/docker-compose.external.yml)
 
 ```bash
 # Download and use the external services compose file
-curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose.external.yml
-docker-compose -f docker-compose.external.yml up -d
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/example/docker-compose.external.yml
+docker-compose -f example/docker-compose.external.yml up -d
 ```
 
 <details>
-<summary>View docker-compose.external.yml content</summary>
+<summary>View example/docker-compose.external.yml content</summary>
 
 ```yaml
-# See the complete file: docker-compose.external.yml
+# See the complete file: example/docker-compose.external.yml
 # This compose file includes:
 # - Audiobookbay downloader service
 # - Configuration for external Jackett and Transmission/qBittorrent/Decypharr
@@ -312,19 +328,19 @@ docker-compose -f docker-compose.external.yml up -d
 
 Use this for a complete setup including Jackett and Transmission services.
 
-**📁 File:** [`docker-compose.full.yml`](./docker-compose.full.yml)
+**📁 File:** [`example/docker-compose.full.yml`](./example/docker-compose.full.yml)
 
 ```bash
 # Download and use the full stack compose file
-curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose.full.yml
-docker-compose -f docker-compose.full.yml up -d
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/example/docker-compose.full.yml
+docker-compose -f example/docker-compose.full.yml up -d
 ```
 
 <details>
-<summary>View docker-compose.full.yml content</summary>
+<summary>View example/docker-compose.full.yml content</summary>
 
 ```yaml
-# See the complete file: docker-compose.full.yml  
+# See the complete file: example/docker-compose.full.yml  
 # This compose file includes:
 # - Audiobookbay downloader service
 # - Jackett service with LinuxServer.io image
@@ -339,19 +355,19 @@ docker-compose -f docker-compose.full.yml up -d
 
 Use this for a complete setup with qBittorrent as the torrent client (without VPN).
 
-**📁 File:** [`docker-compose-qbittorrent.yml`](./docker-compose-qbittorrent.yml)
+**📁 File:** [`example/docker-compose-qbittorrent.yml`](./example/docker-compose-qbittorrent.yml)
 
 ```bash
 # Download and use the qBittorrent compose file
-curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose-qbittorrent.yml
-docker-compose -f docker-compose-qbittorrent.yml up -d
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/example/docker-compose-qbittorrent.yml
+docker-compose -f example/docker-compose-qbittorrent.yml up -d
 ```
 
 <details>
-<summary>View docker-compose-qbittorrent.yml content</summary>
+<summary>View example/docker-compose-qbittorrent.yml content</summary>
 
 ```yaml
-# See the complete file: docker-compose-qbittorrent.yml
+# See the complete file: example/docker-compose-qbittorrent.yml
 # This compose file includes:
 # - Audiobookbay downloader service
 # - qBittorrent service with LinuxServer.io image
@@ -366,12 +382,12 @@ docker-compose -f docker-compose-qbittorrent.yml up -d
 
 Use this for a complete, privacy-focused setup with qBittorrent running behind a VPN (gluetun).
 
-**📁 File:** [`docker-compose-qbittorrent-vpn.yml`](./docker-compose-qbittorrent-vpn.yml)
+**📁 File:** [`example/docker-compose-qbittorrent-vpn.yml`](./example/docker-compose-qbittorrent-vpn.yml)
 
 ```bash
 # Download and use the VPN compose file
-curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/docker-compose-qbittorrent-vpn.yml
-docker-compose -f docker-compose-qbittorrent-vpn.yml up -d
+curl -O https://raw.githubusercontent.com/moonblade/audiobookbay-downloader/main/example/docker-compose-qbittorrent-vpn.yml
+docker-compose -f example/docker-compose-qbittorrent-vpn.yml up -d
 ```
 
 **Features:**
@@ -381,10 +397,10 @@ docker-compose -f docker-compose-qbittorrent-vpn.yml up -d
 - 🏥 Health checks on all services
 
 <details>
-<summary>View docker-compose-qbittorrent-vpn.yml content</summary>
+<summary>View example/docker-compose-qbittorrent-vpn.yml content</summary>
 
 ```yaml
-# See the complete file: docker-compose-qbittorrent-vpn.yml
+# See the complete file: example/docker-compose-qbittorrent-vpn.yml
 # This compose file includes:
 # - gluetun VPN container (configure your provider)
 # - qBittorrent routed through VPN
@@ -430,9 +446,9 @@ docker-compose -f docker-compose-qbittorrent-vpn.yml up -d
 # Using Docker Compose
 docker-compose up -d
 
-# Or using Python directly
+# Or running locally (no Docker)
 pip install -r requirements.txt
-python main.py
+PYTHONPATH=source python -m uvicorn abb.main:app --host 0.0.0.0 --port 9000
 ```
 
 ### 4. Access the Application

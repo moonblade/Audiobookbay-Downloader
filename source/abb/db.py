@@ -1,5 +1,5 @@
 import os
-from constants import DB_PATH
+from .constants import DB_PATH
 from tinydb import TinyDB, Query
 
 beetsdb = TinyDB(os.path.join(DB_PATH, "beets.json"))

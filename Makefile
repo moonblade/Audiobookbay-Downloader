@@ -8,7 +8,7 @@ venv:
 	python3 -m venv venv
 
 run:
-	source venv/bin/activate && python3 main.py
+	source venv/bin/activate && PYTHONPATH=source uvicorn abb.main:app --reload --host 0.0.0.0 --port 9000
 
 requirements:
 	source venv/bin/activate && pip install -r requirements.txt
