@@ -105,6 +105,8 @@ When enabled, a new "Goodreads" tab appears in the web UI where you can configur
 - **Poll Interval**: How often to check for new books (in minutes, default: 60)
 - **Auto-download**: Enable/disable automatic downloading of new books
 
+**Note**: Configuration changes take effect immediately without requiring a pod restart. The polling scheduler automatically starts/restarts when you save the configuration.
+
 ## Authentication Modes
 
 ### None Mode (Default)
