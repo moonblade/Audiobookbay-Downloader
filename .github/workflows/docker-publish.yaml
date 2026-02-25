@@ -20,6 +20,19 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Compute Docker image tags
+      shell: bash
+      run: |
+        echo "TAGS<<EOF" >> "$GITHUB_ENV"
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          # PR builds must not publish prod-tracked tags like :latest or :ts_*.
+          echo "ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:pr-${{ github.event.pull_request.number }}-${{ github.sha }}" >> "$GITHUB_ENV"
+        else
+          echo "ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:ts_${{ env.ts }}" >> "$GITHUB_ENV"
+          echo "ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:latest" >> "$GITHUB_ENV"
+        fi
+        echo "EOF" >> "$GITHUB_ENV"
+
     # - name: Unlock secrets
     #   uses: sliteteam/github-action-git-crypt-unlock@1.2.0
     #   env:
@@ -50,6 +63,4 @@ jobs:
       with:
         context: .
         push: true
-        tags: |
-          ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:ts_${{ env.ts }}
-          ghcr.io/${{ github.repository_owner }}/audiobookbay-downloader:latest
+        tags: ${{ env.TAGS }}
