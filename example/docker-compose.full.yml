@@ -2,8 +2,8 @@ version: '3.8'
 
 services:
   audiobookbay-downloader:
-    build: .
-    container_name: abb-downloader
+    image: ghcr.io/moonblade/audiobookbay-downloader:latest
+    platform: linux/amd64
     ports:
       - "9000:9000"
     environment:
@@ -64,7 +64,6 @@ services:
 
   jackett:
     image: lscr.io/linuxserver/jackett:latest
-    container_name: abb-jackett
     environment:
       - PUID=1000
       - PGID=1000
@@ -84,7 +83,6 @@ services:
 
   transmission:
     image: lscr.io/linuxserver/transmission:latest
-    container_name: abb-transmission
     environment:
       - PUID=1000
       - PGID=1000
@@ -137,7 +135,3 @@ volumes:
     driver: local
   # music_library:  # Uncomment if using beets
   #   driver: local
-
-networks:
-  default:
-    name: audiobookbay-network
