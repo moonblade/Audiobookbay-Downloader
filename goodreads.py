@@ -20,7 +20,7 @@ def build_rss_url(user_id: str, shelf: str, page: int = 1) -> str:
     return GOODREADS_RSS_URL.format(user_id=user_id, shelf=shelf, page=page)
 
 
-def fetch_goodreads_shelf(user_id: str, shelf: str, max_pages: int = 10) -> List[Dict[str, Any]]:
+def fetch_goodreads_shelf(user_id: str, shelf: str, max_pages: int = 500) -> List[Dict[str, Any]]:
     """
     Fetch all books from a Goodreads shelf with pagination.
     Returns books sorted by date_added descending (latest first).
@@ -28,7 +28,7 @@ def fetch_goodreads_shelf(user_id: str, shelf: str, max_pages: int = 10) -> List
     Args:
         user_id: Goodreads user ID (numeric)
         shelf: Shelf name (e.g., 'to-read')
-        max_pages: Maximum pages to fetch (default 10 = up to 2000 books)
+        max_pages: Maximum pages to fetch (default 500, since RSS returns 1 book/page)
     """
     all_books = []
     page = 1
@@ -62,9 +62,9 @@ def fetch_goodreads_shelf(user_id: str, shelf: str, max_pages: int = 10) -> List
             
             logger.info(f"Page {page}: fetched {len(feed.entries)} books (total: {len(all_books)})")
             
-            # If we got less than 200, we've reached the last page
-            if len(feed.entries) < 200:
-                break
+            # Goodreads RSS now only returns 1 item per page regardless of per_page parameter
+            # Continue pagination until we get no entries at all
+            # (Previously: if len(feed.entries) < 200: break)
             
             page += 1
             
