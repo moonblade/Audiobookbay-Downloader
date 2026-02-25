@@ -42,8 +42,8 @@ abb/
 ## CODE MAP
 
 ### Entry Points
-- `main.py` - FastAPI app (`uvicorn main:app`)
-- `abb.py` - Legacy CLI script (in .gitignore, not production)
+- `source/abb/main.py` - FastAPI app (`PYTHONPATH=source uvicorn abb.main:app`)
+- `scripts/legacy/abb.py` - Legacy CLI script (not production)
 
 ### Core Classes
 | Symbol | Location | Purpose |
@@ -73,7 +73,7 @@ abb/
 ## ANTI-PATTERNS
 
 - **DO NOT** add local/database authentication - removed intentionally
-- **DO NOT** use `abb.py` - legacy CLI, ignored by git
+- **DO NOT** use `scripts/legacy/abb.py` - legacy CLI, not production
 - **NEVER** hardcode API keys - use constants.py env loading
 - **AVOID** direct TorrentClient instantiation - use torrent_service functions
 
@@ -92,7 +92,7 @@ make run               # Start dev server (port 9000)
 
 # Docker
 make build             # Build Docker image
-docker-compose -f docker-compose.full.yml up -d  # Full stack
+docker-compose -f example/docker-compose.full.yml up -d  # Full stack
 
 # Environment
 cp secrets/dev.env.sample secrets/dev.env  # Then edit with real values
