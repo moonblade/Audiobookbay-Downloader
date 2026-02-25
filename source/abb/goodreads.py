@@ -1,13 +1,13 @@
 import feedparser
 from typing import List, Dict, Any, Optional
-from audiobookbay import search_audiobook
-from torrent_service import add_torrent
-from models import User
-from goodreads_db import (
+from .audiobookbay import search_audiobook
+from .torrent_service import add_torrent
+from .models import User
+from .goodreads_db import (
     get_config, save_config, update_poll_status,
     get_processed_book, add_processed_book, get_all_processed_books
 )
-from utils import custom_logger
+from .utils import custom_logger
 
 logger = custom_logger(__name__)
 

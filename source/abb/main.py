@@ -13,19 +13,19 @@ from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from pydantic import BaseModel
 
-from models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
-from torrent_service import (
+from .models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
+from .torrent_service import (
     init_torrent_service, get_torrents, add_torrent, delete_torrent, 
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
     set_category
 )
-from audiobookbay import search_audiobook
-from beetsapi import autoimport
-from constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
-from db import select_candidate
-from utils import custom_logger
-from goodreads import poll_and_download, validate_goodreads_config
-from goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books
+from .audiobookbay import search_audiobook
+from .beetsapi import autoimport
+from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
+from .db import select_candidate
+from .utils import custom_logger
+from .goodreads import poll_and_download, validate_goodreads_config
+from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books
 
 logger = custom_logger(__name__)
 
@@ -407,4 +407,4 @@ def clear_all_processed_books_endpoint(user: User = Depends(authenticate)):
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=9000, reload=True)
+    uvicorn.run("abb.main:app", host="0.0.0.0", port=9000, reload=True)

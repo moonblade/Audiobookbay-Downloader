@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from constants import DB_PATH
+from .constants import DB_PATH
 from tinydb import TinyDB, Query
 
 # Database for Goodreads configuration and processed books

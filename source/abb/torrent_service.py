@@ -1,13 +1,13 @@
 import time
 from typing import Optional, List, Dict, Any
-from models import User, TorrentClientType
-from torrent import create_torrent_client, TorrentClientInterface
-from constants import (
+from .models import User, TorrentClientType
+from .torrent import create_torrent_client, TorrentClientInterface
+from .constants import (
     LABEL, DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, 
     BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL
 )
-from audiobookbay import get_jackett_magnet
-from utils import custom_logger
+from .audiobookbay import get_jackett_magnet
+from .utils import custom_logger
 
 logger = custom_logger(__name__)
 

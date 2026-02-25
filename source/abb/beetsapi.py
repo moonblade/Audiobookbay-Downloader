@@ -5,10 +5,10 @@ from beets.library import Library
 from beets import config, plugins
 from beets.autotag import Recommendation
 
-from torrent_service import add_label_to_torrent, get_torrents, remove_label_from_torrent
-from constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_DIR, BEETS_ERROR_LABEL, BEETS_INPUT_PATH
-from db import get_candidates, get_selected, save_candidates
-from utils import custom_logger
+from .torrent_service import add_label_to_torrent, get_torrents, remove_label_from_torrent
+from .constants import ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_DIR, BEETS_ERROR_LABEL, BEETS_INPUT_PATH
+from .db import get_candidates, get_selected, save_candidates
+from .utils import custom_logger
 
 logger = custom_logger(__name__)
 

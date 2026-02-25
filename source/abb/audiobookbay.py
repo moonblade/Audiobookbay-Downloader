@@ -1,6 +1,6 @@
 import requests
-from constants import JACKETT_API_KEY, JACKETT_API_URL
-from utils import custom_logger
+from .constants import JACKETT_API_KEY, JACKETT_API_URL
+from .utils import custom_logger
 
 logger = custom_logger(__name__)
 
@@ -38,4 +38,3 @@ def search_audiobook(query):
     except Exception as e:
         logger.error(f"Search failed: {e}")
         return []
-
