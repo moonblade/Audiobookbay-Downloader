@@ -27,6 +27,14 @@ A modern web application for searching and downloading audiobooks from Audiobook
 
 ![Search with Goodreads Tab](static/search-with-goodreads-tab.png)
 
+### qBittorrent Category Management
+
+![Status Page with Set Category Button](static/status-page-category-button.png)
+
+![Set Category Modal](static/category-modal-open.png)
+
+![Category Set Successfully](static/category-set-success.png)
+
 ## Environment Variables
 
 ### Required Configuration
@@ -54,6 +62,25 @@ QBITTORRENT_URL=https://qbittorrent.example.com
 QBITTORRENT_USERNAME=your_qbittorrent_user
 QBITTORRENT_PASSWORD=your_qbittorrent_password
 ```
+
+**qBittorrent Category Support**
+
+qBittorrent categories allow you to organize downloads and automatically save them to specific paths. You can set a default category for new downloads and change categories for existing torrents.
+
+**Setup:**
+1. Create a category in qBittorrent (Options → Downloads → Default Save Path for categories)
+2. Set the save path for each category
+3. Set default category for new downloads (optional):
+
+```env
+QBITTORRENT_CATEGORY=audiobooks             # Default category for all downloads (optional)
+```
+
+**Change Category:**
+- Navigate to the Status page
+- Click the folder icon button next to any torrent
+- Enter the new category name
+- qBittorrent will move the download to the new category's save path
 
 **Option 3: Decypharr**
 ```env
@@ -293,6 +320,7 @@ python main.py
 - `POST /torrent/{id}/pause` - Pause torrent
 - `POST /torrent/{id}/play` - Resume torrent
 - `POST /autoimport` - Trigger auto-import process
+- `POST /torrent/{id}/category` - Set category for torrent (qBittorrent only)
 
 ## Development
 

@@ -70,6 +70,7 @@
     id: null,
     torrentClientType: null,
 
+
     goodreadsEnabled: false,
     goodreadsConfig: { user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
     processedBooks: [],
@@ -118,10 +119,12 @@
 
         
         try {
+            let requestBody = { url };
+
             let response = await fetch('/add', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ url })
+                body: JSON.stringify(requestBody)
             });
             let data = await response.json();
             if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
@@ -523,6 +526,54 @@
         }
     },
 
+    showCategoryModal: false,
+    categoryTorrentId: null,
+    newCategory: '',
+    settingCategory: false,
+    categoryError: '',
+
+    openCategoryModal(torrentId) {
+        this.categoryTorrentId = torrentId;
+        this.newCategory = '';
+        this.categoryError = '';
+        this.showCategoryModal = true;
+    },
+
+    closeCategoryModal() {
+        this.showCategoryModal = false;
+        this.categoryTorrentId = null;
+        this.newCategory = '';
+        this.categoryError = '';
+    },
+
+    async setCategory() {
+        if (!this.newCategory.trim()) {
+            this.categoryError = 'Category name is required';
+            return;
+        }
+        this.settingCategory = true;
+        this.categoryError = '';
+        try {
+            const response = await fetch(`/torrent/${this.categoryTorrentId}/category`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ category: this.newCategory.trim() })
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to set category');
+            }
+            this.closeCategoryModal();
+            this.getTorrentStatus();
+        } catch (error) {
+            console.error('Error setting category:', error);
+            this.categoryError = error.message;
+        } finally {
+            this.settingCategory = false;
+        }
+    },
+
+
     showCandidateDialog: false,
     selectedCandidate: null,
     selectedTorrent: null,
@@ -662,8 +713,17 @@
               <button x-show="torrentClientType !== 'decypharr'" 
                       @click="toggleTorrent(torrent.id, torrent.status)" 
                       :disabled="deletingTorrent === torrent.id"
-                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8">
+                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8"
+                      title="Pause/Resume">
                 <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>
+              </button>
+              
+              <button x-show="torrentClientType === 'qbittorrent'" 
+                      @click="openCategoryModal(torrent.id)" 
+                      :disabled="deletingTorrent === torrent.id"
+                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8"
+                      title="Set Category">
+                <i class="fas fa-folder"></i>
               </button>
               
               <button @click="deleteTorrent(torrent.id)" 
@@ -691,6 +751,32 @@
                 Delete
               </button>
               <button @click="cancelDeleteTorrent" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <template x-if="showCategoryModal">
+        <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4" @click.self="closeCategoryModal()">
+          <div class="bg-gray-700 p-6 rounded-lg w-full max-w-sm">
+            <h3 class="text-xl font-bold mb-4">Set Category</h3>
+            <div class="mb-4">
+              <label class="block text-sm text-gray-400 mb-1">Category Name</label>
+              <input type="text" 
+                     x-model="newCategory" 
+                     @keyup.enter="setCategory()"
+                     class="w-full p-2 rounded bg-gray-600 text-white" 
+                     placeholder="e.g., audiobooks">
+            </div>
+            <p x-show="categoryError" class="text-red-500 text-sm mb-3" x-text="categoryError"></p>
+            <div class="flex justify-end gap-2">
+              <button @click="setCategory()" 
+                      :disabled="settingCategory" 
+                      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                <span x-show="settingCategory" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                Set Category
+              </button>
+              <button @click="closeCategoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
             </div>
           </div>
         </div>

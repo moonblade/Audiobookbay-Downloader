@@ -15,6 +15,7 @@ DECYPHARR_API_KEY = os.getenv("DECYPHARR_API_KEY", "")
 QBITTORRENT_URL = os.getenv("QBITTORRENT_URL", "")
 QBITTORRENT_USERNAME = os.getenv("QBITTORRENT_USERNAME", "")
 QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
+QBITTORRENT_CATEGORY = os.getenv("QBITTORRENT_CATEGORY", "")  # Optional category for qBittorrent save path routing
 
 LABEL = os.getenv("LABEL", "audiobook")
 

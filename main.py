@@ -16,7 +16,8 @@ from pydantic import BaseModel
 from models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
 from torrent_service import (
     init_torrent_service, get_torrents, add_torrent, delete_torrent, 
-    pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents
+    pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
+    set_category
 )
 from audiobookbay import search_audiobook
 from beetsapi import autoimport
@@ -37,6 +38,8 @@ class GoodreadsConfigRequest(BaseModel):
     poll_interval: int = 60
     enabled: bool = False
 
+class CategoryRequest(BaseModel):
+    category: str
 
 def setup_goodreads_scheduler():
     """Setup or update the Goodreads polling scheduler based on current config."""
@@ -296,6 +299,21 @@ def play_torrent_endpoint(
         logger.error(f"Resume torrent failed: {e}")
         raise HTTPException(status_code=500, detail=f"Resume torrent failed: {e}")
 
+@app.post("/torrent/{torrent_id}/category")
+def set_category_endpoint(
+    torrent_id: str,
+    category_request: CategoryRequest,
+    user: User = Depends(authenticate)
+):
+    """Set category for a torrent (qBittorrent only)"""
+    try:
+        if set_category(torrent_id, user, category_request.category):
+            return {"status": "ok", "message": f"Category set to '{category_request.category}' for torrent {torrent_id}"}
+        else:
+            raise HTTPException(status_code=500, detail=f"Failed to set category for torrent {torrent_id}")
+    except Exception as e:
+        logger.error(f"Set category failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Set category failed: {e}")
 @app.post("/selectCandidate/{hash_string}/{candidate_id}")
 def select_candidate_endpoint(hash_string: str, candidate_id: str, user: User = Depends(authenticate)):
     try:

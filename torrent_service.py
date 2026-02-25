@@ -27,15 +27,15 @@ class TorrentService:
             logger.exception(f"Error getting torrents: {e}")
             return []
 
-    def add_torrent(self, torrent_url: str, user: User, label: str = None) -> bool:
-        """Add torrent from URL/magnet link"""
+    def add_torrent(self, torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
+        """Add torrent from URL/magnet link. Category is optional (qBittorrent only)."""
         try:
             if label is None:
                 label = LABEL
 
             # Convert to magnet if needed
             torrent_url = get_jackett_magnet(torrent_url)
-            return self.client.add_torrent(torrent_url, user, label)
+            return self.client.add_torrent(torrent_url, user, label, category)
         except Exception as e:
             logger.error(f"Error adding torrent: {e}")
             return False
@@ -80,6 +80,13 @@ class TorrentService:
             logger.error(f"Error removing label from torrent {torrent_id}: {e}")
             return False
 
+    def set_category(self, torrent_id: str, user: User, category: str) -> bool:
+        """Set category for a torrent (qBittorrent only)"""
+        try:
+            return self.client.set_category(torrent_id, user, category)
+        except Exception as e:
+            logger.error(f"Error setting category for torrent {torrent_id}: {e}")
+            return False
     def remove_label_from_torrent_with_hash(self, hash_string: str, user: User, label: str) -> bool:
         """Remove label from torrent by hash"""
         try:
@@ -124,9 +131,9 @@ def get_torrents(user: User) -> List[Dict[str, Any]]:
     """Get torrents for a user"""
     return get_torrent_service().get_torrents(user)
 
-def add_torrent(torrent_url: str, user: User, label: str = None) -> bool:
+def add_torrent(torrent_url: str, user: User, label: str = None, category: str = None) -> bool:
     """Add torrent from URL/magnet link"""
-    return get_torrent_service().add_torrent(torrent_url, user, label)
+    return get_torrent_service().add_torrent(torrent_url, user, label, category)
 
 def delete_torrent(torrent_id: str, user: User, delete_data: bool = True) -> bool:
     """Delete a torrent"""
@@ -156,3 +163,6 @@ def delete_old_torrents() -> None:
     """Delete old completed torrents"""
     get_torrent_service().delete_old_torrents()
 
+def set_category(torrent_id: str, user: User, category: str) -> bool:
+    """Set category for a torrent (qBittorrent only)"""
+    return get_torrent_service().set_category(torrent_id, user, category)
