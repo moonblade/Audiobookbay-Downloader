@@ -4,3 +4,12 @@ __pycache__
 temp
 example/jackett
 example/transmission
+
+# Local/dev scratch (do not commit)
+app-data/
+downloads/
+frontend/
+jackett-config/
+qbittorrent-config/
+test-screenshots/
+docker-compose-test.yml
