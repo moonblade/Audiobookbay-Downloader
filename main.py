@@ -39,8 +39,10 @@ class GoodreadsConfigRequest(BaseModel):
 
 
 def setup_goodreads_scheduler():
+    """Setup or update the Goodreads polling scheduler based on current config."""
     config = get_goodreads_config()
     
+    # Remove existing Goodreads polling job if it exists
     scheduler.remove_all_jobs()
     
     if config.get("enabled") and config.get("user_id"):
@@ -52,10 +54,15 @@ def setup_goodreads_scheduler():
             id='goodreads_poll',
             replace_existing=True
         )
-        logger.info(f"Goodreads scheduler started with {poll_interval} minute interval")
+        
+        # Ensure scheduler is running
+        if not scheduler.running:
+            scheduler.start()
+            logger.info("Started Goodreads scheduler")
+        
+        logger.info(f"Goodreads scheduler configured with {poll_interval} minute interval")
     else:
-        logger.info("Goodreads scheduler not started (disabled or not configured)")
-
+        logger.info("Goodreads scheduler disabled (not enabled or not configured)")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -93,9 +100,7 @@ async def lifespan(app: FastAPI):
     
     if GOODREADS_ENABLED:
         setup_goodreads_scheduler()
-        scheduler.start()
         logger.info("Goodreads integration enabled")
-    
     yield
     
     if scheduler.running:
