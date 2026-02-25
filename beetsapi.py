@@ -1,8 +1,6 @@
-import json
 import os
-from itertools import chain
+from pathlib import Path
 import beets.importer as importer
-from beets.ui.commands import AlbumChange, PromptChoice
 from beets.library import Library
 from beets import config, plugins
 from beets.autotag import Recommendation
@@ -16,7 +14,16 @@ logger = custom_logger(__name__)
 
 if config["plugins"]:
     plugins.load_plugins(str(config["plugins"]).split(" "))
-    lib = Library(os.path.join(BEETS_DIR, "library.db"), directory=config["directory"].get())
+
+    _beets_directory = config["directory"].get()
+    if _beets_directory is None:
+        _beets_directory_str = None
+    elif isinstance(_beets_directory, (str, Path)):
+        _beets_directory_str = os.fspath(_beets_directory)
+    else:
+        _beets_directory_str = str(_beets_directory)
+
+    lib = Library(os.path.join(BEETS_DIR, "library.db"), directory=_beets_directory_str)
 
 class ProgrammaticImportSession(importer.ImportSession):
     def __init__(self, lib, loghandler, paths, query, torrent):
@@ -140,13 +147,25 @@ class ProgrammaticImportSession(importer.ImportSession):
 
 def getFolders(torrent):
     folders = set()
-    for file in torrent.get("files"):
+    files = torrent.get("files", [])
+    if not files:
+        logger.warning(f"No files found for torrent {torrent.get('name')} - skipping")
+        return []
+    for file in files:
         folders.add(os.path.join(BEETS_INPUT_PATH, file.get("name").split("/")[0]))
     return list(folders)
 
 def autoimport():
     torrents = get_torrents(ADMIN_USER_DICT)
-    torrents = [torrent for torrent in torrents if ("audiobook" in torrent.get("labels") and BEETS_COMPLETE_LABEL not in torrent.get("labels") and BEETS_ERROR_LABEL not in torrent.get("labels"))]
+    torrents = [
+        torrent
+        for torrent in torrents
+        if (
+            "audiobook" in (torrent.get("labels") or [])
+            and BEETS_COMPLETE_LABEL not in (torrent.get("labels") or [])
+            and BEETS_ERROR_LABEL not in (torrent.get("labels") or [])
+        )
+    ]
     if not torrents:
         logger.warn("No torrents found")
         return
@@ -157,6 +176,9 @@ def autoimport():
                 continue
             logger.info(f"Processing {torrent['name']}")
             folders = getFolders(torrent)
+            if not folders:
+                logger.warning(f"Skipping {torrent['name']} - no folders to process")
+                continue
             session = ProgrammaticImportSession(
                 lib,
                 loghandler=logger,
@@ -165,9 +187,11 @@ def autoimport():
                 torrent=torrent
             )
             session.run()
-            add_label_to_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)
-            remove_label_from_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_ERROR_LABEL)
+            torrent_id = str(torrent["id"])
+            _ = add_label_to_torrent(torrent_id, ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)
+            _ = remove_label_from_torrent(torrent_id, ADMIN_USER_DICT, BEETS_ERROR_LABEL)
         except Exception as e:
             logger.exception(f"Import failed: {e}")
-            add_label_to_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_ERROR_LABEL)
-            remove_label_from_torrent(torrent.get("id"), ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)
+            torrent_id = str(torrent["id"])
+            _ = add_label_to_torrent(torrent_id, ADMIN_USER_DICT, BEETS_ERROR_LABEL)
+            _ = remove_label_from_torrent(torrent_id, ADMIN_USER_DICT, BEETS_COMPLETE_LABEL)

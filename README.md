@@ -113,6 +113,9 @@ STRICTLY_DELETE_AFTER_DAYS=30               # Days before force deletion
 ```
 
 #### Beets Integration (Optional)
+
+**Note:** Beets integration is supported with Transmission and qBittorrent clients only. Decypharr does not support beets integration due to API limitations (no label/file management APIs).
+
 ```env
 USE_BEETS_IMPORT=false                      # Enable beets music library integration
 BEETSDIR=/config                            # Beets configuration directory
@@ -120,6 +123,132 @@ BEETS_INPUT_PATH=/beetsinput                # Input path for beets processing
 BEETS_COMPLETE_LABEL=beets                  # Label for beets-processed torrents
 BEETS_ERROR_LABEL=beetserror                # Label for beets processing errors
 ```
+
+### Beets Integration Setup (Audiobooks)
+
+When enabled, ABB will run a beets import for completed torrents and:
+
+- apply `BEETS_COMPLETE_LABEL` (default: `beets`) on success
+- apply `BEETS_ERROR_LABEL` (default: `beetserror`) if beets needs manual selection
+
+#### 1) Enable beets via environment variables
+
+```env
+USE_BEETS_IMPORT=true
+
+# Where your beets config.yaml and library.db live (mounted into the ABB container)
+BEETSDIR=/config
+
+# Path inside the ABB container that points at your download directory
+# (mount the same downloads volume/path into ABB)
+BEETS_INPUT_PATH=/downloads
+
+BEETS_COMPLETE_LABEL=beets
+BEETS_ERROR_LABEL=beetserror
+```
+
+#### 2) Create the beets config
+
+Create `${BEETSDIR}/config.yaml` (inside the container). With Docker, this is typically a host directory mounted to `/config`.
+
+```yaml
+plugins: audible copyartifacts edit fromfilename scrub
+
+# Where your organized audiobook library will live INSIDE the container.
+# Make sure you mount a volume to this path.
+directory: /audiobooks
+
+paths:
+  # For books that belong to a series
+  "albumtype:audiobook series_name::.+ series_position::.+": $albumartist/%ifdef{series_name}/%ifdef{series_position} - $album%aunique{}/$track - $title
+  "albumtype:audiobook series_name::.+": $albumartist/%ifdef{series_name}/$album%aunique{}/$track - $title
+  # Stand-alone books
+  "albumtype:audiobook": $albumartist/$album%aunique{}/$track - $title
+  default: $albumartist/$album%aunique{}/$track - $title
+  singleton: Non-Album/$artist - $title
+  comp: Compilations/$album%aunique{}/$track - $title
+  albumtype_soundtrack: Soundtracks/$album/$track $title
+
+# disables musicbrainz lookup, as it doesn't help for audiobooks
+musicbrainz:
+  enabled: no
+
+import:
+  incremental: yes
+
+match:
+  strong_rec_thresh: 0.10
+  medium_rec_thresh: 0.25
+
+audible:
+  match_chapters: true                      # match files to audible chapters
+  source_weight: 0.0                        # disable the source_weight penalty
+  fetch_art: true                           # retrieve cover art
+  include_narrator_in_artists: true         # include author and narrator in artist tag
+  keep_series_reference_in_title: true      # keep ", Book X" in titles
+  keep_series_reference_in_subtitle: true   # keep series reference in subtitle
+  write_description_file: true              # output desc.txt
+  write_reader_file: true                   # output reader.txt
+  region: us                                # au, ca, de, es, fr, in, it, jp, us, uk
+
+copyartifacts:
+  extensions: .yml  # copy metadata.yml if present
+
+scrub:
+  auto: yes
+```
+
+#### 3) Mount volumes correctly (Docker)
+
+You need:
+
+- a persistent `/config` (for beets `config.yaml` + `library.db`)
+- the downloads volume mounted into ABB (so `BEETS_INPUT_PATH` can be read)
+- a persistent audiobook library mount (matching `directory:` in the beets config)
+
+Example:
+
+```yaml
+services:
+  audiobookbay-downloader:
+    volumes:
+      - ./beets-config:/config
+      - ./downloads:/downloads
+      - ./audiobooks:/audiobooks
+```
+
+> macOS tip: if Docker isn't running, you can start it via Colima:
+>
+> ```bash
+> colima start
+> ```
+
+#### 4) How it works in ABB
+
+1. Torrent completes and enters **Seeding**.
+2. ABB runs beets import for that torrent's top-level folder.
+3. On success, ABB adds the `beets` label.
+4. If beets is ambiguous, ABB adds `beetserror` and stores candidate matches.
+5. In the **Status** tab, click the red error icon to select a candidate; ABB will re-run import.
+
+#### Testing tip (fast screenshot / UI verification)
+
+If you want to test the candidate-selection UI without waiting for a real torrent to finish/import, you can populate the TinyDB file used for candidates. Set `DB_PATH` to a writable location and add an entry to `${DB_PATH}/beets.json` with your torrent's `hash_string` as `torrent_id`.
+
+#### Screenshots
+
+**Beets import succeeded**
+
+![Beets Imported](static/beets-import-success.png)
+
+**Beets import needs manual selection**
+
+![Beets Import Error + Candidate Selection](static/beets-import-error.png)
+
+#### Resources
+
+- Beets Audible plugin: https://github.com/Neurrone/beets-audible
+- Beets path formats: https://beets.readthedocs.io/en/stable/reference/pathformat.html
 
 #### Goodreads Integration (Optional)
 ```env
