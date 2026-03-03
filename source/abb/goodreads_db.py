@@ -1,24 +1,53 @@
 import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from .constants import DB_PATH
+from .constants import DB_PATH, ADMIN_ID
 from tinydb import TinyDB, Query
 
 # Database for Goodreads configuration and processed books
 goodreadsdb = TinyDB(os.path.join(DB_PATH, "goodreads.json"))
 
-# Config table stores: user_id, shelf, poll_interval, enabled, last_poll
-# Processed table stores: book_id, title, author, added_date, downloaded_date, torrent_id, status
+# Config table stores: user_id, goodreads_user_id, shelf, poll_interval, enabled, last_poll
+# Processed table stores: user_id, book_id, title, author, added_date, downloaded_date, torrent_id, status
 
-CONFIG_DOC_ID = "config"
+CONFIG_DOC_TYPE = "config"
+PROCESSED_DOC_TYPE = "processed_book"
 
 
-def get_config() -> Dict[str, Any]:
-    """Get Goodreads configuration from database."""
-    entry = goodreadsdb.get(Query().doc_type == CONFIG_DOC_ID)
+def _migrate_legacy_config() -> None:
+    """
+    Migrate legacy single-user config to multi-tenant format.
+    If a config without user_id exists, assume it belongs to admin and migrate it.
+    """
+    q = Query()
+    legacy_config = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists()))
+    
+    if legacy_config:
+        goodreadsdb.update(
+            {"user_id": ADMIN_ID},
+            (q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists())
+        )
+    
+    legacy_books = goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (~q.user_id.exists()))
+    if legacy_books:
+        for book in legacy_books:
+            goodreadsdb.update(
+                {"user_id": ADMIN_ID},
+                (q.doc_type == PROCESSED_DOC_TYPE) & (q.book_id == book.get("book_id")) & (~q.user_id.exists())
+            )
+
+
+_migrate_legacy_config()
+
+
+def get_config(user_id: str) -> Dict[str, Any]:
+    """Get Goodreads configuration for a specific user."""
+    q = Query()
+    entry = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == user_id))
     if entry:
         return {
             "user_id": entry.get("user_id", ""),
+            "goodreads_user_id": entry.get("goodreads_user_id", ""),
             "shelf": entry.get("shelf", "to-read"),
             "poll_interval": entry.get("poll_interval", 60),
             "enabled": entry.get("enabled", False),
@@ -27,7 +56,8 @@ def get_config() -> Dict[str, Any]:
             "last_poll_message": entry.get("last_poll_message"),
         }
     return {
-        "user_id": "",
+        "user_id": user_id,
+        "goodreads_user_id": "",
         "shelf": "to-read",
         "poll_interval": 60,
         "enabled": False,
@@ -37,57 +67,101 @@ def get_config() -> Dict[str, Any]:
     }
 
 
+def get_all_configs() -> List[Dict[str, Any]]:
+    """Get all Goodreads configurations for all users."""
+    q = Query()
+    configs = goodreadsdb.search(q.doc_type == CONFIG_DOC_TYPE)
+    return [
+        {
+            "user_id": entry.get("user_id", ""),
+            "goodreads_user_id": entry.get("goodreads_user_id", ""),
+            "shelf": entry.get("shelf", "to-read"),
+            "poll_interval": entry.get("poll_interval", 60),
+            "enabled": entry.get("enabled", False),
+            "last_poll": entry.get("last_poll"),
+            "last_poll_status": entry.get("last_poll_status"),
+            "last_poll_message": entry.get("last_poll_message"),
+        }
+        for entry in configs
+    ]
+
+
+def get_enabled_configs() -> List[Dict[str, Any]]:
+    """Get all enabled Goodreads configurations."""
+    q = Query()
+    configs = goodreadsdb.search((q.doc_type == CONFIG_DOC_TYPE) & (q.enabled == True))
+    return [
+        {
+            "user_id": entry.get("user_id", ""),
+            "goodreads_user_id": entry.get("goodreads_user_id", ""),
+            "shelf": entry.get("shelf", "to-read"),
+            "poll_interval": entry.get("poll_interval", 60),
+            "enabled": entry.get("enabled", False),
+            "last_poll": entry.get("last_poll"),
+            "last_poll_status": entry.get("last_poll_status"),
+            "last_poll_message": entry.get("last_poll_message"),
+        }
+        for entry in configs
+    ]
+
+
 def save_config(
     user_id: str,
+    goodreads_user_id: str,
     shelf: str = "to-read",
     poll_interval: int = 60,
     enabled: bool = False
 ) -> Dict[str, Any]:
-    """Save Goodreads configuration to database."""
+    """Save Goodreads configuration for a specific user."""
+    q = Query()
     config_data = {
-        "doc_type": CONFIG_DOC_ID,
+        "doc_type": CONFIG_DOC_TYPE,
         "user_id": user_id,
+        "goodreads_user_id": goodreads_user_id,
         "shelf": shelf,
         "poll_interval": poll_interval,
         "enabled": enabled,
     }
     
-    existing = goodreadsdb.get(Query().doc_type == CONFIG_DOC_ID)
+    existing = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == user_id))
     if existing:
-        # Preserve last_poll info when updating config
         config_data["last_poll"] = existing.get("last_poll")
         config_data["last_poll_status"] = existing.get("last_poll_status")
         config_data["last_poll_message"] = existing.get("last_poll_message")
-        goodreadsdb.update(config_data, Query().doc_type == CONFIG_DOC_ID)
+        goodreadsdb.update(config_data, (q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == user_id))
     else:
         goodreadsdb.insert(config_data)
     
-    return get_config()
+    return get_config(user_id)
 
 
-def update_poll_status(status: str, message: str = "") -> None:
-    """Update the last poll status."""
+def update_poll_status(user_id: str, status: str, message: str = "") -> None:
+    """Update the last poll status for a specific user."""
+    q = Query()
     goodreadsdb.update(
         {
             "last_poll": datetime.utcnow().isoformat(),
             "last_poll_status": status,
             "last_poll_message": message,
         },
-        Query().doc_type == CONFIG_DOC_ID
+        (q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == user_id)
     )
 
 
-def get_processed_book(book_id: str) -> Optional[Dict[str, Any]]:
-    """Get a processed book by its Goodreads book ID."""
-    return goodreadsdb.get(Query().book_id == book_id)
+def get_processed_book(user_id: str, book_id: str) -> Optional[Dict[str, Any]]:
+    """Get a processed book by its Goodreads book ID for a specific user."""
+    q = Query()
+    return goodreadsdb.get((q.user_id == user_id) & (q.book_id == book_id) & (q.doc_type == PROCESSED_DOC_TYPE))
 
 
-def get_all_processed_books() -> List[Dict[str, Any]]:
-    """Get all processed books."""
-    return goodreadsdb.search(Query().doc_type == "processed_book")
+def get_all_processed_books(user_id: str) -> List[Dict[str, Any]]:
+    """Get all processed books for a specific user."""
+    q = Query()
+    return goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (q.user_id == user_id))
 
 
 def add_processed_book(
+    user_id: str,
     book_id: str,
     title: str,
     author: str,
@@ -95,9 +169,11 @@ def add_processed_book(
     torrent_name: str = "",
     error_message: str = ""
 ) -> Dict[str, Any]:
-    """Add a book to the processed list."""
+    """Add a book to the processed list for a specific user."""
+    q = Query()
     book_data = {
-        "doc_type": "processed_book",
+        "doc_type": PROCESSED_DOC_TYPE,
+        "user_id": user_id,
         "book_id": book_id,
         "title": title,
         "author": author,
@@ -107,22 +183,24 @@ def add_processed_book(
         "error_message": error_message,
     }
     
-    existing = get_processed_book(book_id)
+    existing = get_processed_book(user_id, book_id)
     if existing:
-        goodreadsdb.update(book_data, Query().book_id == book_id)
+        goodreadsdb.update(book_data, (q.user_id == user_id) & (q.book_id == book_id))
     else:
         goodreadsdb.insert(book_data)
     
     return book_data
 
 
-def delete_processed_book(book_id: str) -> bool:
-    """Delete a processed book (allows re-download)."""
-    removed = goodreadsdb.remove(Query().book_id == book_id)
+def delete_processed_book(user_id: str, book_id: str) -> bool:
+    """Delete a processed book for a specific user (allows re-download)."""
+    q = Query()
+    removed = goodreadsdb.remove((q.user_id == user_id) & (q.book_id == book_id))
     return len(removed) > 0
 
 
-def clear_all_processed_books() -> int:
-    """Clear all processed books (allows re-downloading everything)."""
-    removed = goodreadsdb.remove(Query().doc_type == "processed_book")
+def clear_all_processed_books(user_id: str) -> int:
+    """Clear all processed books for a specific user (allows re-downloading everything)."""
+    q = Query()
+    removed = goodreadsdb.remove((q.doc_type == PROCESSED_DOC_TYPE) & (q.user_id == user_id))
     return len(removed)
