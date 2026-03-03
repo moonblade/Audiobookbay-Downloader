@@ -24,8 +24,8 @@ from .beetsapi import autoimport
 from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
 from .db import select_candidate
 from .utils import custom_logger
-from .goodreads import poll_and_download, validate_goodreads_config
-from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books
+from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config
+from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books, get_enabled_configs
 
 logger = custom_logger(__name__)
 
@@ -33,7 +33,7 @@ scheduler = BackgroundScheduler()
 
 
 class GoodreadsConfigRequest(BaseModel):
-    user_id: str
+    goodreads_user_id: str
     shelf: str = "to-read"
     poll_interval: int = 60
     enabled: bool = False
@@ -43,29 +43,27 @@ class CategoryRequest(BaseModel):
 
 def setup_goodreads_scheduler():
     """Setup or update the Goodreads polling scheduler based on current config."""
-    config = get_goodreads_config()
+    enabled_configs = get_enabled_configs()
     
-    # Remove existing Goodreads polling job if it exists
     scheduler.remove_all_jobs()
     
-    if config.get("enabled") and config.get("user_id"):
-        poll_interval = config.get("poll_interval", 60)
+    if enabled_configs:
+        min_poll_interval = min(config.get("poll_interval", 60) for config in enabled_configs)
         scheduler.add_job(
             poll_and_download,
             'interval',
-            minutes=poll_interval,
+            minutes=min_poll_interval,
             id='goodreads_poll',
             replace_existing=True
         )
         
-        # Ensure scheduler is running
         if not scheduler.running:
             scheduler.start()
             logger.info("Started Goodreads scheduler")
         
-        logger.info(f"Goodreads scheduler configured with {poll_interval} minute interval")
+        logger.info(f"Goodreads scheduler configured with {min_poll_interval} minute interval for {len(enabled_configs)} users")
     else:
-        logger.info("Goodreads scheduler disabled (not enabled or not configured)")
+        logger.info("Goodreads scheduler disabled (no enabled configurations)")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -339,7 +337,7 @@ def autoimport_endpoint():
 def get_goodreads_config_endpoint(user: User = Depends(authenticate)):
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
-    return get_goodreads_config()
+    return get_goodreads_config(user.id)
 
 @app.post("/goodreads/config")
 def save_goodreads_config_endpoint(config: GoodreadsConfigRequest, user: User = Depends(authenticate)):
@@ -348,7 +346,8 @@ def save_goodreads_config_endpoint(config: GoodreadsConfigRequest, user: User = 
     
     try:
         result = save_goodreads_config(
-            user_id=config.user_id,
+            user_id=user.id,
+            goodreads_user_id=config.goodreads_user_id,
             shelf=config.shelf,
             poll_interval=config.poll_interval,
             enabled=config.enabled
@@ -366,7 +365,7 @@ def validate_goodreads_endpoint(config: GoodreadsConfigRequest, user: User = Dep
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
     
-    return validate_goodreads_config(config.user_id, config.shelf)
+    return validate_goodreads_config(config.goodreads_user_id, config.shelf)
 
 @app.post("/goodreads/poll")
 def trigger_goodreads_poll(user: User = Depends(authenticate)):
@@ -374,7 +373,7 @@ def trigger_goodreads_poll(user: User = Depends(authenticate)):
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
     
     try:
-        result = poll_and_download()
+        result = poll_and_download_single_user(user.id)
         return result
     except Exception as e:
         logger.error(f"Manual poll failed: {e}")
@@ -385,14 +384,14 @@ def get_processed_books(user: User = Depends(authenticate)):
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
     
-    return get_all_processed_books()
+    return get_all_processed_books(user.id)
 
 @app.delete("/goodreads/books/{book_id}")
 def delete_processed_book_endpoint(book_id: str, user: User = Depends(authenticate)):
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
     
-    if delete_processed_book(book_id):
+    if delete_processed_book(user.id, book_id):
         return {"status": "ok", "message": f"Book {book_id} removed from processed list"}
     else:
         raise HTTPException(status_code=404, detail=f"Book {book_id} not found")
@@ -402,7 +401,7 @@ def clear_all_processed_books_endpoint(user: User = Depends(authenticate)):
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
     
-    count = clear_all_processed_books()
+    count = clear_all_processed_books(user.id)
     return {"status": "ok", "message": f"Cleared {count} processed books"}
 
 
