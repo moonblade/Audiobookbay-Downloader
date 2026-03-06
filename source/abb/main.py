@@ -120,7 +120,7 @@ def authenticate_authentik(request: Request):
     if not username:
         raise HTTPException(status_code=httpstatus.HTTP_401_UNAUTHORIZED, detail="Missing username header")
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
-    return User(username=username, role=role, id=id)
+    return User(username=username, role=role, id=username)
 
 def authenticate(request: Request):
     if AUTH_MODE == "none":
@@ -136,11 +136,11 @@ def authenticate_userpass_authentik(request: Request):
     role = "admin" if request.headers.get("X-authentik-role") == "admin" else "user"
     if not username:
         raise HTTPException(status_code=httpstatus.HTTP_401_UNAUTHORIZED, detail="Missing username header")
-    request.session["user_id"] = id
+    request.session["user_id"] = username
     request.session["username"] = username
     request.session["role"] = role
     logger.info(f"Authenticating user: {username}, role: {role}, id: {id}")
-    return User(username=username, role=role, id=id)
+    return User(username=username, role=role, id=username)
 
 def validate_admin(request: Request):
     if AUTH_MODE == "none":
