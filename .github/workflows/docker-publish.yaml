@@ -20,6 +20,10 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Get Unix Timestamp
+      id: timestamp
+      run: echo "ts=$(date +%s)" >> "$GITHUB_ENV"
+
     - name: Compute Docker image tags
       shell: bash
       run: |
@@ -50,10 +54,6 @@ jobs:
     - name: Set short commit SHA
       id: vars
       run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
-
-    - name: Get Unix Timestamp
-      id: timestamp
-      run: echo "ts=$(date +%s)" >> "$GITHUB_ENV"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v2
