@@ -19,6 +19,10 @@ A modern web application for searching and downloading audiobooks from Audiobook
 
 ![Download Management](static/status-page-category-button.png)
 
+### Settings Page
+
+![Settings Page](static/settings-page.png)
+
 ## Quick Start (Docker)
 
 If you just want it running locally, use one of the ready-made Docker Compose files in `example/`.
@@ -254,7 +258,7 @@ If you want to test the candidate-selection UI without waiting for a real torren
 
 **Beets import needs manual selection**
 
-![Beets Import Error + Candidate Selection](static/status-page-category-button.png)
+![Beets Import Error + Candidate Selection](static/beets-candidate-selection.png)
 
 #### Resources
 
