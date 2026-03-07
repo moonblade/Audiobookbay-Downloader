@@ -738,7 +738,7 @@
                 <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center gap-4">
                     <img :src="result.Poster" x-show="result.Poster" class="w-16 h-16 object-cover rounded">
                     <div class="flex-grow w-3/4">
-                        <h2 class="font-bold break-words" x-text="result.Title"></h2>
+                        <h2 class="font-bold break-all" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
                     </div>
                     <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
@@ -765,7 +765,7 @@
                 <i x-show="torrent.status === 'Downloading'" class="fas fa-arrow-down text-blue-500"></i>
                 <i x-show="torrent.status === 'Stopped'" class="fas fa-pause text-gray-500"></i>
               </div>
-              <h3 class="font-bold text-sm sm:text-base break-words pr-2" x-text="torrent.name"></h3>
+              <h3 class="font-bold text-sm sm:text-base break-all pr-2" x-text="torrent.name"></h3>
             </div>
             <div class="flex items-center gap-2" x-show="torrent.use_beets_import">
               <i x-show="torrent.status === 'Seeding' && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
