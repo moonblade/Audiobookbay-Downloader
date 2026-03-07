@@ -21,9 +21,8 @@ QBITTORRENT_CATEGORY = get_effective_config("qbittorrent_category")
 
 LABEL = get_effective_config("label")
 
-ADMIN_USER = os.getenv("ADMIN_USER", "admin")
-ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
-ADMIN_ID = os.getenv("ADMIN_ID", "e0617896-4560-193c-cc34-653683f99c35")
+# Internal admin user for background operations (beets, auto-delete)
+ADMIN_USER_DICT = User(username="admin", role="admin", id="admin")
 
 DELETE_AFTER_DAYS = get_effective_config("delete_after_days")
 STRICTLY_DELETE_AFTER_DAYS = get_effective_config("strictly_delete_after_days")

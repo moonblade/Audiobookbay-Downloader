@@ -2,18 +2,16 @@
 import os
 import uvicorn
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
-from typing import Optional
+from datetime import datetime
 
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from pydantic import BaseModel
 
-from .models import TorrentRequest, CreateUserRequest, ChangePasswordRequest, User, TorrentClientType
+from .models import TorrentRequest, User, TorrentClientType
 from .torrent_service import (
     init_torrent_service, get_torrents, add_torrent, delete_torrent, 
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
