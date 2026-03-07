@@ -1,45 +1,42 @@
 import os
 
 from .models import User
+from .config_db import get_effective_config
 
-JACKETT_API_URL = os.getenv("JACKETT_API_URL", "")
-JACKETT_API_KEY = os.getenv("JACKETT_API_KEY", "")
+DB_PATH = os.getenv("DB_PATH", "/tmp")
 
-# Torrent client configuration
-TORRENT_CLIENT_TYPE = os.getenv("TORRENT_CLIENT_TYPE", "transmission")  # transmission, decypharr, qbittorrent
-TRANSMISSION_URL = os.getenv("TRANSMISSION_URL", "")
-TRANSMISSION_USER = os.getenv("TRANSMISSION_USER", "")
-TRANSMISSION_PASS = os.getenv("TRANSMISSION_PASS", "")
-DECYPHARR_URL = os.getenv("DECYPHARR_URL", "")
-DECYPHARR_API_KEY = os.getenv("DECYPHARR_API_KEY", "")
-QBITTORRENT_URL = os.getenv("QBITTORRENT_URL", "")
-QBITTORRENT_USERNAME = os.getenv("QBITTORRENT_USERNAME", "")
-QBITTORRENT_PASSWORD = os.getenv("QBITTORRENT_PASSWORD", "")
-QBITTORRENT_CATEGORY = os.getenv("QBITTORRENT_CATEGORY", "")  # Optional category for qBittorrent save path routing
+JACKETT_API_URL = get_effective_config("jackett_api_url")
+JACKETT_API_KEY = get_effective_config("jackett_api_key")
 
-LABEL = os.getenv("LABEL", "audiobook")
+TORRENT_CLIENT_TYPE = get_effective_config("torrent_client_type")
+TRANSMISSION_URL = get_effective_config("transmission_url")
+TRANSMISSION_USER = get_effective_config("transmission_user")
+TRANSMISSION_PASS = get_effective_config("transmission_pass")
+DECYPHARR_URL = get_effective_config("decypharr_url")
+DECYPHARR_API_KEY = get_effective_config("decypharr_api_key")
+QBITTORRENT_URL = get_effective_config("qbittorrent_url")
+QBITTORRENT_USERNAME = get_effective_config("qbittorrent_username")
+QBITTORRENT_PASSWORD = get_effective_config("qbittorrent_password")
+QBITTORRENT_CATEGORY = get_effective_config("qbittorrent_category")
+
+LABEL = get_effective_config("label")
 
 ADMIN_USER = os.getenv("ADMIN_USER", "admin")
 ADMIN_PASS = os.getenv("ADMIN_PASS", "YWRtaW4=")
 ADMIN_ID = os.getenv("ADMIN_ID", "e0617896-4560-193c-cc34-653683f99c35")
-DB_PATH = os.getenv("DB_PATH", "/tmp")
-# DB_PATH/users.json returns a json of type [{"username": "user1", "password": "cGFzc3dvcmQ=", "role": "user", "id": "userapikey"}]
 
-DELETE_AFTER_DAYS = int(os.getenv("DELETE_AFTER_DAYS", 14))
-STRICTLY_DELETE_AFTER_DAYS = int(os.getenv("STRICTLY_DELETE_AFTER_DAYS", 30))
+DELETE_AFTER_DAYS = get_effective_config("delete_after_days")
+STRICTLY_DELETE_AFTER_DAYS = get_effective_config("strictly_delete_after_days")
 
-# Beets
 BEETS_DIR = os.getenv("BEETSDIR", "/config")
-BEETS_INPUT_PATH = os.getenv("BEETS_INPUT_PATH", "/beetsinput")
+BEETS_INPUT_PATH = get_effective_config("beets_input_path")
 BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
-USE_BEETS_IMPORT = os.getenv("USE_BEETS_IMPORT", "false").lower() == "true" and TORRENT_CLIENT_TYPE != "decypharr"
+USE_BEETS_IMPORT = get_effective_config("use_beets_import") and TORRENT_CLIENT_TYPE != "decypharr"
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
 ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)
 
-# App configuration
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
-TITLE = os.getenv("TITLE", "Audiobook Search")
-AUTH_MODE = os.getenv("AUTH_MODE", "none")  # authentik, none
+TITLE = get_effective_config("title")
+AUTH_MODE = os.getenv("AUTH_MODE", "none")
 
-# Goodreads Integration
-GOODREADS_ENABLED = os.getenv("GOODREADS_ENABLED", "false").lower() == "true"
+GOODREADS_ENABLED = get_effective_config("goodreads_enabled")

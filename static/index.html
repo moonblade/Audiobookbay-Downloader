@@ -80,6 +80,87 @@
     validationResult: null,
     pollingNow: false,
 
+    appConfig: {},
+    configSchema: {},
+    loadingConfig: false,
+    configError: '',
+    configSuccess: '',
+    testingTorrent: false,
+    testingJackett: false,
+    torrentTestResult: null,
+    jackettTestResult: null,
+
+    async fetchAppConfig() {
+        this.loadingConfig = true;
+        this.configError = '';
+        try {
+            const response = await fetch('/config');
+            if (!response.ok) throw new Error('Failed to fetch config');
+            const data = await response.json();
+            this.appConfig = {};
+            this.configSchema = {};
+            for (const [key, val] of Object.entries(data)) {
+                this.appConfig[key] = val.value;
+                this.configSchema[key] = val;
+            }
+        } catch (error) {
+            this.configError = error.message;
+        } finally {
+            this.loadingConfig = false;
+        }
+    },
+
+    async saveAppConfig() {
+        this.loadingConfig = true;
+        this.configError = '';
+        this.configSuccess = '';
+        try {
+            const response = await fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configs: this.appConfig })
+            });
+            if (!response.ok) throw new Error('Failed to save config');
+            const data = await response.json();
+            this.configSuccess = data.message;
+            this.fetchAppConfig();
+        } catch (error) {
+            this.configError = error.message;
+        } finally {
+            this.loadingConfig = false;
+        }
+    },
+
+    async testTorrentConnection() {
+        this.testingTorrent = true;
+        this.torrentTestResult = null;
+        try {
+            const response = await fetch('/config/test-torrent', { method: 'POST' });
+            this.torrentTestResult = await response.json();
+        } catch (error) {
+            this.torrentTestResult = { success: false, message: error.message };
+        } finally {
+            this.testingTorrent = false;
+        }
+    },
+
+    async testJackettConnection() {
+        this.testingJackett = true;
+        this.jackettTestResult = null;
+        try {
+            const response = await fetch('/config/test-jackett', { method: 'POST' });
+            this.jackettTestResult = await response.json();
+        } catch (error) {
+            this.jackettTestResult = { success: false, message: error.message };
+        } finally {
+            this.testingJackett = false;
+        }
+    },
+
+    getConfigsByGroup(group) {
+        return Object.entries(this.configSchema).filter(([k, v]) => v.group === group);
+    },
+
     async search() {
         if (!this.query) return;
         this.loadingSearch = true;
@@ -636,7 +717,8 @@
     <div class="max-w-3xl mx-auto mb-6 flex justify-center">
         <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
         <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}">Status</button>
-        <button x-show="goodreadsEnabled" @click="activeTab = 'goodreads'; fetchGoodreadsConfig(); fetchProcessedBooks();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'goodreads', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'goodreads'}" class="rounded-r">Goodreads</button>
+        <button x-show="goodreadsEnabled" @click="activeTab = 'goodreads'; fetchGoodreadsConfig(); fetchProcessedBooks();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'goodreads', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'goodreads'}">Goodreads</button>
+        <button x-show="role === 'admin'" @click="activeTab = 'settings'; fetchAppConfig();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'settings', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'settings'}" class="rounded-r">Settings</button>
     </div>
 
     <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
@@ -869,6 +951,165 @@
                     </div>
                 </template>
             </div>
+        </div>
+    </div>
+
+    <div x-show="activeTab === 'settings'" class="max-w-3xl mx-auto mt-6 px-2">
+        <h2 class="text-2xl font-bold mb-4">Settings</h2>
+        
+        <p x-show="configError" class="text-red-500 mb-4" x-text="configError"></p>
+        <p x-show="configSuccess" class="text-green-500 mb-4" x-text="configSuccess"></p>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">App Settings</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('app')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input type="text" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Jackett Configuration</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('jackett')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
+                    </div>
+                </template>
+            </div>
+            <div class="mt-3">
+                <button @click="testJackettConnection()" :disabled="testingJackett" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                    <span x-show="testingJackett" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Test Connection
+                </button>
+                <div x-show="jackettTestResult" class="mt-2 p-2 rounded text-sm" :class="jackettTestResult?.success ? 'bg-green-900' : 'bg-red-900'" x-text="jackettTestResult?.message"></div>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Torrent Client</h3>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm text-gray-400 mb-1">Client Type</label>
+                    <select x-model="appConfig.torrent_client_type" class="w-full p-2 rounded bg-gray-600 text-white">
+                        <option value="transmission">Transmission</option>
+                        <option value="qbittorrent">qBittorrent</option>
+                        <option value="decypharr">Decypharr</option>
+                    </select>
+                </div>
+                <template x-for="[key, schema] in getConfigsByGroup('torrent').filter(([k]) => k !== 'torrent_client_type')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div x-show="appConfig.torrent_client_type === 'transmission'" class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Transmission Settings</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('transmission')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div x-show="appConfig.torrent_client_type === 'qbittorrent'" class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">qBittorrent Settings</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('qbittorrent')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div x-show="appConfig.torrent_client_type === 'decypharr'" class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Decypharr Settings</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('decypharr')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <button @click="testTorrentConnection()" :disabled="testingTorrent" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                <span x-show="testingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                Test Torrent Connection
+            </button>
+            <div x-show="torrentTestResult" class="mt-2 p-2 rounded text-sm" :class="torrentTestResult?.success ? 'bg-green-900' : 'bg-red-900'" x-text="torrentTestResult?.message"></div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Cleanup Settings</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('cleanup')" :key="key">
+                    <div>
+                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                        <input type="number" x-model.number="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Beets Integration</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('beets')" :key="key">
+                    <div>
+                        <template x-if="schema.type === 'boolean' || typeof appConfig[key] === 'boolean'">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" x-model="appConfig[key]" :id="key" class="w-4 h-4">
+                                <label :for="key" class="text-sm" x-text="schema.label"></label>
+                            </div>
+                        </template>
+                        <template x-if="schema.type !== 'boolean' && typeof appConfig[key] !== 'boolean'">
+                            <div>
+                                <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
+                                <input type="text" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
+                            </div>
+                        </template>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="bg-gray-700 p-4 rounded-lg mb-4">
+            <h3 class="text-lg font-semibold mb-3">Goodreads Integration</h3>
+            <div class="space-y-3">
+                <template x-for="[key, schema] in getConfigsByGroup('goodreads')" :key="key">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" x-model="appConfig[key]" :id="key" class="w-4 h-4">
+                        <label :for="key" class="text-sm" x-text="schema.label"></label>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <div class="flex gap-2 mb-6">
+            <button @click="saveAppConfig()" :disabled="loadingConfig" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded flex items-center gap-2 disabled:opacity-50">
+                <span x-show="loadingConfig" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                Save Configuration
+            </button>
+        </div>
+
+        <div class="bg-yellow-900 p-4 rounded-lg mb-4 text-sm">
+            <p><strong>Note:</strong> Some configuration changes may require a restart to take effect. Environment variables take precedence if DB config is not set.</p>
         </div>
     </div>
 
