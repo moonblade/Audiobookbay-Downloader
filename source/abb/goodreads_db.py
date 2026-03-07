@@ -15,26 +15,34 @@ PROCESSED_DOC_TYPE = "processed_book"
 
 
 def _migrate_legacy_config() -> None:
-    """
-    Migrate legacy single-user config to multi-tenant format.
-    If a config without user_id exists, assume it belongs to admin and migrate it.
-    """
     q = Query()
-    legacy_config = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists()))
     
+    legacy_config = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists()))
     if legacy_config:
         goodreadsdb.update(
             {"user_id": ADMIN_ID},
             (q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists())
         )
     
-    legacy_books = goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (~q.user_id.exists()))
-    if legacy_books:
-        for book in legacy_books:
+    misplaced_configs = goodreadsdb.search(
+        (q.doc_type == CONFIG_DOC_TYPE) & 
+        (q.user_id.exists()) & 
+        (~q.goodreads_user_id.exists())
+    )
+    for config in misplaced_configs:
+        old_user_id = config.get("user_id", "")
+        if old_user_id and old_user_id.isdigit():
             goodreadsdb.update(
-                {"user_id": ADMIN_ID},
-                (q.doc_type == PROCESSED_DOC_TYPE) & (q.book_id == book.get("book_id")) & (~q.user_id.exists())
+                {"goodreads_user_id": old_user_id, "user_id": ADMIN_ID},
+                (q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == old_user_id)
             )
+    
+    legacy_books = goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (~q.user_id.exists()))
+    for book in legacy_books:
+        goodreadsdb.update(
+            {"user_id": ADMIN_ID},
+            (q.doc_type == PROCESSED_DOC_TYPE) & (q.book_id == book.get("book_id")) & (~q.user_id.exists())
+        )
 
 
 _migrate_legacy_config()
