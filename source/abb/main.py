@@ -465,20 +465,20 @@ def test_torrent_connection(user: User = Depends(validate_admin)):
             password = get_effective_config("transmission_pass")
             if not url:
                 return {"success": False, "message": "Transmission URL not configured"}
-            client = create_torrent_client("transmission", url, username, password)
+            client = create_torrent_client("transmission", url=url, username=username, password=password)
         elif client_type == "qbittorrent":
             url = get_effective_config("qbittorrent_url")
             username = get_effective_config("qbittorrent_username")
             password = get_effective_config("qbittorrent_password")
             if not url:
                 return {"success": False, "message": "qBittorrent URL not configured"}
-            client = create_torrent_client("qbittorrent", url, username, password)
+            client = create_torrent_client("qbittorrent", url=url, username=username, password=password)
         elif client_type == "decypharr":
             url = get_effective_config("decypharr_url")
             api_key = get_effective_config("decypharr_api_key")
             if not url:
                 return {"success": False, "message": "Decypharr URL not configured"}
-            client = create_torrent_client("decypharr", url, api_key)
+            client = create_torrent_client("decypharr", url=url, api_key=api_key)
         else:
             return {"success": False, "message": f"Unknown client type: {client_type}"}
         
