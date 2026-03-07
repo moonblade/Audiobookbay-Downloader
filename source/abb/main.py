@@ -25,7 +25,7 @@ from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, T
 from .db import select_candidate
 from .utils import custom_logger
 from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config
-from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books, get_enabled_configs
+from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books, get_enabled_configs, migrate_legacy_data_for_user
 
 logger = custom_logger(__name__)
 
@@ -337,6 +337,7 @@ def autoimport_endpoint():
 def get_goodreads_config_endpoint(user: User = Depends(authenticate)):
     if not GOODREADS_ENABLED:
         raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+    migrate_legacy_data_for_user(user.id, user.role == "admin")
     return get_goodreads_config(user.id)
 
 @app.post("/goodreads/config")

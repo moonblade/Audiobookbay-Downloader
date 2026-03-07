@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from typing import Optional, List, Dict, Any
-from .constants import DB_PATH, ADMIN_ID
+from .constants import DB_PATH
 from tinydb import TinyDB, Query
 
 # Database for Goodreads configuration and processed books
@@ -12,40 +12,51 @@ goodreadsdb = TinyDB(os.path.join(DB_PATH, "goodreads.json"))
 
 CONFIG_DOC_TYPE = "config"
 PROCESSED_DOC_TYPE = "processed_book"
+MIGRATION_DOC_TYPE = "migration_status"
 
 
-def _migrate_legacy_config() -> None:
+def migrate_legacy_data_for_user(user_id: str, is_admin: bool) -> None:
+    if not is_admin:
+        return
+    
     q = Query()
     
-    legacy_config = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists()))
-    if legacy_config:
-        goodreadsdb.update(
-            {"user_id": ADMIN_ID},
-            (q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists())
-        )
+    migration_record = goodreadsdb.get(q.doc_type == MIGRATION_DOC_TYPE)
+    if migration_record and migration_record.get("completed"):
+        return
     
+    legacy_config = goodreadsdb.get((q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists()))
     misplaced_configs = goodreadsdb.search(
         (q.doc_type == CONFIG_DOC_TYPE) & 
         (q.user_id.exists()) & 
         (~q.goodreads_user_id.exists())
     )
+    legacy_books = goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (~q.user_id.exists()))
+    
+    if legacy_config:
+        goodreadsdb.update(
+            {"user_id": user_id},
+            (q.doc_type == CONFIG_DOC_TYPE) & (~q.user_id.exists())
+        )
+    
     for config in misplaced_configs:
         old_user_id = config.get("user_id", "")
         if old_user_id and old_user_id.isdigit():
             goodreadsdb.update(
-                {"goodreads_user_id": old_user_id, "user_id": ADMIN_ID},
+                {"goodreads_user_id": old_user_id, "user_id": user_id},
                 (q.doc_type == CONFIG_DOC_TYPE) & (q.user_id == old_user_id)
             )
     
-    legacy_books = goodreadsdb.search((q.doc_type == PROCESSED_DOC_TYPE) & (~q.user_id.exists()))
     for book in legacy_books:
         goodreadsdb.update(
-            {"user_id": ADMIN_ID},
+            {"user_id": user_id},
             (q.doc_type == PROCESSED_DOC_TYPE) & (q.book_id == book.get("book_id")) & (~q.user_id.exists())
         )
-
-
-_migrate_legacy_config()
+    
+    if migration_record:
+        goodreadsdb.update({"completed": True}, q.doc_type == MIGRATION_DOC_TYPE)
+    else:
+        goodreadsdb.insert({"doc_type": MIGRATION_DOC_TYPE, "completed": True})
 
 
 def get_config(user_id: str) -> Dict[str, Any]:
