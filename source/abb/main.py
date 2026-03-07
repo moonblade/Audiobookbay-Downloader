@@ -150,12 +150,21 @@ def validate_admin(request: Request):
     if AUTH_MODE == "none":
         return User(username="admin", role="admin", id="admin")
     elif AUTH_MODE == "authentik":
-        id = request.session.get("user_id")
-        role = request.session.get("role")
+        username_header = request.headers.get("X-authentik-username")
+        role_header = request.headers.get("X-authentik-role")
+        role = "admin" if role_header == "admin" else request.session.get("role")
+        id = request.session.get("user_id") or username_header
+        username = request.session.get("username") or username_header
+
+        if username_header:
+            request.session["user_id"] = username_header
+            request.session["username"] = username_header
+            request.session["role"] = role
+
         if role != "admin":
             raise HTTPException(status_code=403, detail="Access forbidden: Admins only")
         return User(
-            username=request.session.get("username"),
+            username=username,
             role=role,
             id=id
         )
