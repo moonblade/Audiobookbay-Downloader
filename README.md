@@ -120,12 +120,7 @@ TITLE="Audiobook Search"                    # Application title
 SESSION_KEY="your_random_session_key"       # Session encryption key
 AUTH_MODE=none                              # Authentication mode: authentik, none
 LABEL=audiobook                             # Default torrent label
-
-# Admin User (Legacy - only used in authentik mode)
-ADMIN_USER=admin
-ADMIN_PASS=YWRtaW4=                         # Base64 encoded password
-ADMIN_ID=e0617896-4560-193c-cc34-653683f99c35
-DB_PATH=/tmp                                # Path for user database
+DB_PATH=/tmp                                # Path for database files
 ```
 
 #### Cleanup Configuration
