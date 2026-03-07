@@ -26,6 +26,7 @@ from .db import select_candidate
 from .utils import custom_logger
 from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config
 from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books, get_enabled_configs, migrate_legacy_data_for_user
+from .config_db import get_all_effective_configs, get_config_schema, set_config, get_effective_config, CONFIG_SCHEMA
 
 logger = custom_logger(__name__)
 
@@ -40,6 +41,9 @@ class GoodreadsConfigRequest(BaseModel):
 
 class CategoryRequest(BaseModel):
     category: str
+
+class AppConfigUpdate(BaseModel):
+    configs: dict
 
 def setup_goodreads_scheduler():
     """Setup or update the Goodreads polling scheduler based on current config."""
@@ -404,6 +408,90 @@ def clear_all_processed_books_endpoint(user: User = Depends(authenticate)):
     
     count = clear_all_processed_books(user.id)
     return {"status": "ok", "message": f"Cleared {count} processed books"}
+
+
+@app.get("/config")
+def get_app_config(user: User = Depends(validate_admin)):
+    configs = get_all_effective_configs()
+    schema = get_config_schema()
+    result = {}
+    for key, value in configs.items():
+        s = schema.get(key, {})
+        is_sensitive = s.get("sensitive", False)
+        # Filter out non-serializable fields (like 'type' which is a Python type)
+        result[key] = {
+            "value": "********" if is_sensitive and value else value,
+            "has_value": bool(value) if is_sensitive else None,
+            "label": s.get("label", key),
+            "group": s.get("group", "app"),
+            "sensitive": is_sensitive,
+            "options": s.get("options"),
+        }
+    return result
+
+
+@app.post("/config")
+def save_app_config(update: AppConfigUpdate, user: User = Depends(validate_admin)):
+    saved_keys = []
+    for key, value in update.configs.items():
+        if key not in CONFIG_SCHEMA:
+            continue
+        if CONFIG_SCHEMA[key].get("sensitive") and value == "********":
+            continue
+        set_config(key, value)
+        saved_keys.append(key)
+    
+    return {"status": "ok", "saved": saved_keys, "message": "Configuration saved. Restart may be required for some changes to take effect."}
+
+
+@app.post("/config/test-torrent")
+def test_torrent_connection(user: User = Depends(validate_admin)):
+    try:
+        from .torrent import create_torrent_client
+        client_type = get_effective_config("torrent_client_type")
+        
+        if client_type == "transmission":
+            url = get_effective_config("transmission_url")
+            username = get_effective_config("transmission_user")
+            password = get_effective_config("transmission_pass")
+            if not url:
+                return {"success": False, "message": "Transmission URL not configured"}
+            client = create_torrent_client("transmission", url, username, password)
+        elif client_type == "qbittorrent":
+            url = get_effective_config("qbittorrent_url")
+            username = get_effective_config("qbittorrent_username")
+            password = get_effective_config("qbittorrent_password")
+            if not url:
+                return {"success": False, "message": "qBittorrent URL not configured"}
+            client = create_torrent_client("qbittorrent", url, username, password)
+        elif client_type == "decypharr":
+            url = get_effective_config("decypharr_url")
+            api_key = get_effective_config("decypharr_api_key")
+            if not url:
+                return {"success": False, "message": "Decypharr URL not configured"}
+            client = create_torrent_client("decypharr", url, api_key)
+        else:
+            return {"success": False, "message": f"Unknown client type: {client_type}"}
+        
+        torrents = client.get_torrents(user)
+        return {"success": True, "message": f"Connected successfully. Found {len(torrents)} torrents."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
+
+@app.post("/config/test-jackett")
+def test_jackett_connection(user: User = Depends(validate_admin)):
+    try:
+        from .audiobookbay import search_audiobook
+        url = get_effective_config("jackett_api_url")
+        api_key = get_effective_config("jackett_api_key")
+        if not url or not api_key:
+            return {"success": False, "message": "Jackett URL or API key not configured"}
+        
+        results = search_audiobook("test", url, api_key)
+        return {"success": True, "message": f"Connected successfully. Search returned {len(results)} results."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
 
 
 if __name__ == "__main__":
