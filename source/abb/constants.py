@@ -32,7 +32,6 @@ BEETS_INPUT_PATH = get_effective_config("beets_input_path")
 BEETS_COMPLETE_LABEL = os.getenv("BEETS_COMPLETE_LABEL", "beets")
 USE_BEETS_IMPORT = get_effective_config("use_beets_import") and TORRENT_CLIENT_TYPE != "decypharr"
 BEETS_ERROR_LABEL = os.getenv("BEETS_ERROR_LABEL", "beetserror")
-ADMIN_USER_DICT = User(username=ADMIN_USER, role="admin", id=ADMIN_ID)
 
 SESSION_KEY = os.getenv("SESSION_KEY", "cp5oLmSZozoLZWHq")
 TITLE = get_effective_config("title")
