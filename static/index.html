@@ -665,7 +665,7 @@
             <div class="flex items-center gap-2" x-show="torrent.use_beets_import">
               <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
               <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500" title="Not Imported"></i>
-              <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.imported && !torrent.importError" class="fas fa-check-circle text-green-500" title="Imported"></i>
+              <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.imported && !torrent.importError" class="fas fa-check-circle" :class="torrent.status === 'Stopped' ? 'text-gray-500' : 'text-green-500'" title="Imported"></i>
             </div>
           </div>
           
