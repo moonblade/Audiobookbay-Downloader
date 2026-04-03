@@ -92,6 +92,7 @@ CONFIG_SCHEMA = {
     "label": {"env": "LABEL", "default": "audiobook", "type": str, "label": "Torrent Label", "group": "torrent", "sensitive": False},
     "delete_after_days": {"env": "DELETE_AFTER_DAYS", "default": 14, "type": int, "label": "Delete After Days", "group": "cleanup", "sensitive": False},
     "strictly_delete_after_days": {"env": "STRICTLY_DELETE_AFTER_DAYS", "default": 30, "type": int, "label": "Force Delete After Days", "group": "cleanup", "sensitive": False},
+    "pause_stale_after_days": {"env": "PAUSE_STALE_AFTER_DAYS", "default": 30, "type": int, "label": "Pause Stale After Days", "group": "cleanup", "sensitive": False},
     
     "use_beets_import": {"env": "USE_BEETS_IMPORT", "default": False, "type": bool, "label": "Enable Beets Import", "group": "beets", "sensitive": False},
     "beets_input_path": {"env": "BEETS_INPUT_PATH", "default": "/beetsinput", "type": str, "label": "Beets Input Path", "group": "beets", "sensitive": False},

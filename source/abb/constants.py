@@ -26,6 +26,7 @@ ADMIN_USER_DICT = User(username="admin", role="admin", id="admin")
 
 DELETE_AFTER_DAYS = get_effective_config("delete_after_days")
 STRICTLY_DELETE_AFTER_DAYS = get_effective_config("strictly_delete_after_days")
+PAUSE_STALE_AFTER_DAYS = get_effective_config("pause_stale_after_days")
 
 BEETS_DIR = os.getenv("BEETSDIR", "/config")
 BEETS_INPUT_PATH = get_effective_config("beets_input_path")

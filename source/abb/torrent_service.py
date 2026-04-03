@@ -111,6 +111,12 @@ class TorrentService:
         except Exception as e:
             logger.error(f"Error deleting old torrents: {e}")
 
+    def pause_stale_torrents(self) -> None:
+        try:
+            self.client.pause_stale_torrents()
+        except Exception as e:
+            logger.error(f"Error pausing stale torrents: {e}")
+
 # Global torrent service instance - will be initialized at startup
 torrent_service: Optional[TorrentService] = None
 
@@ -162,6 +168,9 @@ def remove_label_from_torrent_with_hash(hash_string: str, user: User, label: str
 def delete_old_torrents() -> None:
     """Delete old completed torrents"""
     get_torrent_service().delete_old_torrents()
+
+def pause_stale_torrents() -> None:
+    get_torrent_service().pause_stale_torrents()
 
 def set_category(torrent_id: str, user: User, category: str) -> bool:
     """Set category for a torrent (qBittorrent only)"""

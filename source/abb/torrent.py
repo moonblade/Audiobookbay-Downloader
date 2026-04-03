@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from .models import User, TorrentClientType
 from .constants import (
     ADMIN_USER_DICT, BEETS_COMPLETE_LABEL, BEETS_ERROR_LABEL, 
-    DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, LABEL,
+    DELETE_AFTER_DAYS, STRICTLY_DELETE_AFTER_DAYS, PAUSE_STALE_AFTER_DAYS, LABEL,
     TRANSMISSION_PASS, TRANSMISSION_URL, TRANSMISSION_USER, USE_BEETS_IMPORT,
     QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, QBITTORRENT_CATEGORY
 )
@@ -61,6 +61,10 @@ class TorrentClientInterface(ABC):
 
     def delete_old_torrents(self) -> None:
         """Delete old completed torrents - optional implementation"""
+        pass
+
+    def pause_stale_torrents(self) -> None:
+        """Pause torrents with no activity for configured days - optional implementation"""
         pass
 
 
@@ -150,7 +154,7 @@ class TransmissionClient(TorrentClientInterface):
             "arguments": {
                 "fields": [
                     "id", "name", "status", "labels", "totalSize", "percentDone",
-                    "downloadedEver", "uploadedEver", "addedDate", "uploadRatio",
+                    "downloadedEver", "uploadedEver", "addedDate", "activityDate", "uploadRatio",
                     "files", "eta", "hashString"
                 ]
             }
@@ -200,6 +204,7 @@ class TransmissionClient(TorrentClientInterface):
                 "downloaded_ever": torrent["downloadedEver"],
                 "uploaded_ever": torrent["uploadedEver"],
                 "added_date": torrent["addedDate"],
+                "activity_date": torrent.get("activityDate", 0),
                 "files": torrent.get("files", []),
                 "use_beets_import": USE_BEETS_IMPORT,
                 "imported": imported,
@@ -371,6 +376,25 @@ class TransmissionClient(TorrentClientInterface):
             if time_difference_days > STRICTLY_DELETE_AFTER_DAYS:
                 self.delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=True)
                 logger.info(f"DELETED: {torrent['name']}")
+
+    def pause_stale_torrents(self) -> None:
+        torrents = self.get_torrents(ADMIN_USER_DICT)
+        torrents = [t for t in torrents if (
+            t.get("status") != "Stopped" and
+            BEETS_COMPLETE_LABEL not in t.get("labels", [])
+        )]
+
+        current_time = time.time()
+        for torrent in torrents:
+            activity_date = torrent.get("activity_date", 0)
+            if activity_date == 0:
+                continue
+            
+            days_since_activity = (current_time - activity_date) / (60 * 60 * 24)
+            
+            if days_since_activity > PAUSE_STALE_AFTER_DAYS:
+                self.pause_torrent(str(torrent["id"]), user=ADMIN_USER_DICT)
+                logger.info(f"PAUSED STALE: {torrent['name']} (no activity for {int(days_since_activity)} days)")
 
     def _get_jackett_magnet(self, url: str) -> str:
         """Convert URL to magnet link if needed"""
@@ -571,6 +595,10 @@ class DecypharrClient(TorrentClientInterface):
     def delete_old_torrents(self) -> None:
         """Decypharr handles cleanup automatically via debrid services"""
         logger.info("Decypharr handles torrent cleanup automatically via debrid services")
+        pass
+
+    def pause_stale_torrents(self) -> None:
+        logger.info("Decypharr handles stale torrent management via debrid services")
         pass
 
     def _map_torrent_status(self, status: str) -> str:
@@ -894,6 +922,25 @@ class QBittorrentClient(TorrentClientInterface):
             if time_difference_days > STRICTLY_DELETE_AFTER_DAYS:
                 self.delete_torrent(torrent["id"], user=ADMIN_USER_DICT, delete_data=True)
                 logger.info(f"DELETED: {torrent['name']}")
+
+    def pause_stale_torrents(self) -> None:
+        torrents = self.get_torrents(ADMIN_USER_DICT)
+        torrents = [t for t in torrents if (
+            t.get("status") != "Stopped" and
+            BEETS_COMPLETE_LABEL not in t.get("labels", [])
+        )]
+
+        current_time = time.time()
+        for torrent in torrents:
+            activity_date = torrent.get("activity_date", 0)
+            if activity_date == 0:
+                continue
+            
+            days_since_activity = (current_time - activity_date) / (60 * 60 * 24)
+            
+            if days_since_activity > PAUSE_STALE_AFTER_DAYS:
+                self.pause_torrent(str(torrent["id"]), user=ADMIN_USER_DICT)
+                logger.info(f"PAUSED STALE: {torrent['name']} (no activity for {int(days_since_activity)} days)")
 
     def _get_jackett_magnet(self, url: str) -> str:
         """Convert URL to magnet link if needed"""

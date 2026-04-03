@@ -15,7 +15,7 @@ from .models import TorrentRequest, User, TorrentClientType
 from .torrent_service import (
     init_torrent_service, get_torrents, add_torrent, delete_torrent, 
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
-    set_category
+    pause_stale_torrents, set_category
 )
 from .audiobookbay import search_audiobook
 from .beetsapi import autoimport
@@ -338,6 +338,7 @@ def autoimport_endpoint():
     try:
         autoimport()
         delete_old_torrents()
+        pause_stale_torrents()
         return {"status": "ok", "message": "Auto-import completed successfully"}
     except Exception as e:
         logger.error(f"Auto-import failed: {e}")
