@@ -1,5 +1,11 @@
 # Audiobookbay Downloader
 
+[![Docker Pulls](https://img.shields.io/docker/pulls/moonblade/audiobookbay-downloader?style=flat-square&logo=docker)](https://hub.docker.com/r/moonblade/audiobookbay-downloader)
+[![Docker Image Size](https://img.shields.io/docker/image-size/moonblade/audiobookbay-downloader/latest?style=flat-square&logo=docker)](https://hub.docker.com/r/moonblade/audiobookbay-downloader)
+[![GitHub Actions](https://img.shields.io/github/actions/workflow/status/moonblade/audiobookbay-downloader/docker-publish.yaml?style=flat-square&logo=github&label=build)](https://github.com/moonblade/audiobookbay-downloader/actions)
+[![Python Version](https://img.shields.io/badge/python-3.9+-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/github/license/moonblade/audiobookbay-downloader?style=flat-square)](LICENSE)
+
 A modern web application for searching and downloading audiobooks from AudiobookBay. Features a clean web UI and REST API for automated audiobook management with support for multiple torrent clients and authentication systems.
 
 ## Features
