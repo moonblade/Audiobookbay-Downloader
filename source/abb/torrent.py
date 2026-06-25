@@ -647,7 +647,13 @@ class QBittorrentClient(TorrentClientInterface):
                 data={"username": self.username, "password": self.password},
                 headers={"Referer": self.url}
             )
-            if response.status_code == 200 and response.text == "Ok.":
+            if (response.status_code == 200 and response.text == "Ok.") or (
+                response.status_code == 204
+                and any(
+                    cookie_name.startswith("QBT_SID")
+                    for cookie_name in self.session.cookies.keys()
+                )
+            ):
                 self._logged_in = True
                 return True
             logger.error(f"qBittorrent login failed: {response.status_code} - {response.text}")
