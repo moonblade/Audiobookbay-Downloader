@@ -199,7 +199,8 @@ def get_goodreads_enabled():
 @app.get("/role")
 def role(request: Request, user: User = Depends(authenticate)):
     if user:
-        return {"role": user.role}
+        # username is surfaced in the UI header; role alone drives access.
+        return {"role": user.role, "username": user.username}
     else:
         return "Invalid credentials"
 
