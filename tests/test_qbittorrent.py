@@ -15,7 +15,9 @@ class FakeSession:
             self.cookies[cookie_name] = "session-id"
         self.requests = []
 
-    def post(self, url, data=None, headers=None):
+    # **kwargs absorbs transport-level options such as timeout, which the
+    # assertions below deliberately ignore.
+    def post(self, url, data=None, headers=None, **kwargs):
         self.requests.append({"url": url, "data": data, "headers": headers})
         return self.response
 

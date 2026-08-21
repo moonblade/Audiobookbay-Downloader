@@ -9,9 +9,12 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/source
 
-# Install system dependencies
+# Install system dependencies.
+# curl is required by the healthchecks in the example compose files -- without
+# it every container reports "unhealthy" forever, since the base image is slim.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first to leverage Docker cache

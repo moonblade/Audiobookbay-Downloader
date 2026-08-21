@@ -1,5 +1,6 @@
 
 import os
+import requests
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -238,6 +239,14 @@ def search(
     try:
         results = search_audiobook(query)
         return {"results": results}
+    except requests.Timeout:
+        # Distinguished from a generic 500 so the UI can explain the wait
+        # rather than reporting an unspecified failure.
+        raise HTTPException(
+            status_code=504,
+            detail="Search timed out. Jackett can be slow to answer for "
+                   "AudiobookBay -- try again in a moment.",
+        )
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
