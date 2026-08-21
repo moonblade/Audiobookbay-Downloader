@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import requests
 
 from .constants import JACKETT_API_KEY, JACKETT_API_URL
+from .jackett_urls import with_apikey
 from .utils import custom_logger
 
 logger = custom_logger(__name__)
@@ -33,6 +34,9 @@ def get_jackett_magnet(url: str) -> str:
     try:
         if url.startswith("magnet:"):
             return url
+        # The browser is given a keyless URL (see jackett_urls); restore the
+        # API key so Jackett accepts the request.
+        url = with_apikey(url)
         response = requests.get(url, allow_redirects=False, timeout=MAGNET_TIMEOUT)
         if response.status_code in [301, 302]:
             return response.headers.get("Location", url)

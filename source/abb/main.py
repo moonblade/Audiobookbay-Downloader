@@ -7,7 +7,7 @@ from datetime import datetime
 
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse, Response
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from pydantic import BaseModel
@@ -19,6 +19,8 @@ from .torrent_service import (
     pause_stale_torrents, set_category
 )
 from .audiobookbay import search_audiobook
+from .imageproxy import fetch_image, UnsafeImageURL
+from .jackett_urls import sanitize_result
 from .beetsapi import autoimport
 from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
 from .db import select_candidate
@@ -238,7 +240,10 @@ def search(
 ):
     try:
         results = search_audiobook(query)
-        return {"results": results}
+        # Jackett embeds its API key in both artwork and download URLs.
+        # Strip it before the results reach the browser; /image and the
+        # torrent clients re-attach it server-side at the point of use.
+        return {"results": [sanitize_result(r) for r in results]}
     except requests.Timeout:
         # Distinguished from a generic 500 so the UI can explain the wait
         # rather than reporting an unspecified failure.
@@ -250,6 +255,32 @@ def search(
     except Exception as e:
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
+
+
+@app.get("/image")
+def image_proxy(
+    url: str = Query(..., description="Remote image URL to fetch"),
+    user: User = Depends(authenticate)
+):
+    """Fetch cover art server-side.
+
+    Requires authentication so this cannot be used as an open relay, and
+    validates the URL first -- see imageproxy for the checks applied.
+    """
+    try:
+        body, content_type = fetch_image(url)
+    except UnsafeImageURL as e:
+        logger.info(f"Refused image proxy for {url!r}: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.warning(f"Image proxy failed for {url!r}: {e}")
+        raise HTTPException(status_code=502, detail="Could not fetch image")
+
+    return Response(
+        content=body,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @app.post("/add")
 def add(

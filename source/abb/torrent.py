@@ -11,6 +11,7 @@ from .constants import (
     QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, QBITTORRENT_CATEGORY
 )
 from .db import get_candidates
+from .jackett_urls import with_apikey
 from .utils import custom_logger
 
 # (connect, read). Every outbound call needs one -- an unresponsive torrent
@@ -409,6 +410,8 @@ class TransmissionClient(TorrentClientInterface):
         try:
             if url.startswith("magnet:"):
                 return url
+            # The browser was given a keyless URL; restore the key to fetch it.
+            url = with_apikey(url)
             response = requests.get(url, allow_redirects=False, timeout=CLIENT_TIMEOUT)
             if response.status_code in [301, 302]:
                 return response.headers.get("Location", url)
@@ -964,6 +967,8 @@ class QBittorrentClient(TorrentClientInterface):
         try:
             if url.startswith("magnet:"):
                 return url
+            # The browser was given a keyless URL; restore the key to fetch it.
+            url = with_apikey(url)
             response = requests.get(url, allow_redirects=False, timeout=CLIENT_TIMEOUT)
             if response.status_code in [301, 302]:
                 return response.headers.get("Location", url)
