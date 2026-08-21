@@ -1271,10 +1271,13 @@
                     </h2>
                 </div>
 
-                <div class="flex-1"></div>
+                <div class="hidden sm:block flex-1"></div>
 
+                <!-- Full width on narrow screens: a fixed min-width here can
+                     exceed the viewport once font metrics vary, pushing the
+                     whole grid wider than the page. -->
                 <input type="text" x-model="resultFilter" placeholder="Filter these results..."
-                       class="field !w-auto !py-1.5 text-sm min-w-[12rem]">
+                       class="field w-full sm:!w-auto sm:min-w-[12rem] !py-1.5 text-sm">
 
                 <span x-show="!hasSwarmData() && results.length > 1"
                       class="text-[11px] text-surface-500 flex items-center gap-1"
@@ -1283,7 +1286,7 @@
                     no seed/leech data from this indexer
                 </span>
 
-                <select x-model="sortBy" class="field !w-auto !py-1.5 text-sm">
+                <select x-model="sortBy" class="field !w-auto min-w-0 !py-1.5 text-sm">
                     <option value="seeders" x-show="hasSwarmData()">Most seeders</option>
                     <option value="sizeDesc">Largest first</option>
                     <option value="sizeAsc">Smallest first</option>
