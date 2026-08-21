@@ -11,7 +11,13 @@ from .constants import (
     QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, QBITTORRENT_CATEGORY
 )
 from .db import get_candidates
+from .jackett_urls import with_apikey
 from .utils import custom_logger
+
+# (connect, read). Every outbound call needs one -- an unresponsive torrent
+# client would otherwise hang the request thread indefinitely, which on the
+# status page means a poll that never completes and a spinner that never stops.
+CLIENT_TIMEOUT = (5, 30)
 
 logger = custom_logger(__name__)
 
@@ -79,7 +85,9 @@ class TransmissionClient(TorrentClientInterface):
     def _get_session_id(self) -> Optional[str]:
         """Get Transmission session ID"""
         try:
-            response = requests.get(self.url, auth=(self.username, self.password))
+            response = requests.get(
+                self.url, auth=(self.username, self.password), timeout=CLIENT_TIMEOUT
+            )
             return response.headers.get("X-Transmission-Session-Id")
         except Exception as e:
             logger.error(f"Failed to get Transmission session ID: {e}")
@@ -97,8 +105,9 @@ class TransmissionClient(TorrentClientInterface):
             response = requests.post(
                 self.url, 
                 auth=(self.username, self.password), 
-                json=payload, 
-                headers=headers
+                json=payload,
+                headers=headers,
+                timeout=CLIENT_TIMEOUT
             )
             if response.status_code == 200:
                 return response.json()
@@ -401,7 +410,9 @@ class TransmissionClient(TorrentClientInterface):
         try:
             if url.startswith("magnet:"):
                 return url
-            response = requests.get(url, allow_redirects=False)
+            # The browser was given a keyless URL; restore the key to fetch it.
+            url = with_apikey(url)
+            response = requests.get(url, allow_redirects=False, timeout=CLIENT_TIMEOUT)
             if response.status_code in [301, 302]:
                 return response.headers.get("Location", url)
         except Exception as e:
@@ -443,6 +454,7 @@ class DecypharrClient(TorrentClientInterface):
         try:
             url = f"{self.url}{endpoint}"
             logger.debug(f"Making {method} request to {url} with kwargs: {kwargs}")
+            kwargs.setdefault("timeout", CLIENT_TIMEOUT)
             response = self.session.request(method, url, **kwargs)
             
             if response.status_code == 404:
@@ -645,7 +657,8 @@ class QBittorrentClient(TorrentClientInterface):
             response = self.session.post(
                 f"{self.url}/api/v2/auth/login",
                 data={"username": self.username, "password": self.password},
-                headers={"Referer": self.url}
+                headers={"Referer": self.url},
+                timeout=CLIENT_TIMEOUT
             )
             if (response.status_code == 200 and response.text == "Ok.") or (
                 response.status_code == 204
@@ -670,6 +683,7 @@ class QBittorrentClient(TorrentClientInterface):
         try:
             url = f"{self.url}/api/v2{endpoint}"
             logger.debug(f"Making {method} request to {url}")
+            kwargs.setdefault("timeout", CLIENT_TIMEOUT)
             response = self.session.request(method, url, **kwargs)
             
             if response.status_code == 403:
@@ -953,7 +967,9 @@ class QBittorrentClient(TorrentClientInterface):
         try:
             if url.startswith("magnet:"):
                 return url
-            response = requests.get(url, allow_redirects=False)
+            # The browser was given a keyless URL; restore the key to fetch it.
+            url = with_apikey(url)
+            response = requests.get(url, allow_redirects=False, timeout=CLIENT_TIMEOUT)
             if response.status_code in [301, 302]:
                 return response.headers.get("Location", url)
         except Exception as e:

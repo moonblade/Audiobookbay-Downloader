@@ -3,7 +3,6 @@ version: '3.8'
 services:
   audiobookbay-downloader:
     image: ghcr.io/moonblade/audiobookbay-downloader:latest
-    platform: linux/amd64
     ports:
       - "9000:9000"
     environment:

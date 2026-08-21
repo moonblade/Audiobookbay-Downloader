@@ -1,37 +1,215 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Search</title>
     <link rel="icon" href="/static/favicon.ico">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Alpine.js loaded after app() definition below -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+                            400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+                            800: '#3730a3', 900: '#312e81', 950: '#1e1b4b'
+                        },
+                        surface: {
+                            50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+                            400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+                            800: '#1e293b', 900: '#0f172a', 950: '#020617'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif']
+                    },
+                    keyframes: {
+                        shimmer: { '100%': { transform: 'translateX(100%)' } },
+                        'slide-up': {
+                            '0%': { opacity: '0', transform: 'translateY(8px)' },
+                            '100%': { opacity: '1', transform: 'translateY(0)' }
+                        }
+                    },
+                    animation: {
+                        shimmer: 'shimmer 1.8s infinite',
+                        'slide-up': 'slide-up 0.2s ease-out'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        .progress-bar {
-            height: 1rem;
-            background-color: #e2e8f0;
-            border-radius: 0.5rem;
-            overflow: hidden;
+        :root { color-scheme: dark; }
+
+        body {
+            background-color: #020617;
+            background-image:
+                radial-gradient(ellipse 80% 60% at 50% -20%, rgba(79, 70, 229, 0.25), transparent),
+                radial-gradient(ellipse 60% 50% at 100% 0%, rgba(129, 140, 248, 0.12), transparent);
+            background-attachment: fixed;
         }
 
-        .progress-bar-fill {
-            height: 100%;
-            background-color: #4ade80;
+        [x-cloak] { display: none !important; }
+
+        /* Surface treatment shared by every card and panel. */
+        .panel {
+            background-color: rgb(30 41 59 / 0.55);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgb(255 255 255 / 0.08);
+            border-radius: 0.75rem;
+        }
+
+        .skeleton {
+            position: relative;
+            overflow: hidden;
+            background-color: rgb(51 65 85 / 0.5);
+        }
+        .skeleton::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            transform: translateX(-100%);
+            background-image: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.06), transparent);
+            animation: shimmer 1.8s infinite;
+        }
+        @keyframes shimmer { 100% { transform: translateX(100%); } }
+
+        .field {
+            width: 100%;
+            padding: 0.5rem 0.75rem;
             border-radius: 0.5rem;
-            width: 0%;
-            transition: width 0.5s ease-in-out;
+            background-color: rgb(15 23 42 / 0.6);
+            border: 1px solid rgb(255 255 255 / 0.1);
+            color: white;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .field:focus {
+            outline: none;
+            border-color: rgb(99 102 241);
+            box-shadow: 0 0 0 3px rgb(99 102 241 / 0.2);
+        }
+
+        ::-webkit-scrollbar { width: 10px; height: 10px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgb(71 85 105 / 0.6); border-radius: 999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgb(100 116 139 / 0.8); }
+
+        /* Poster fallback: deterministic gradient keyed off the title hash so a
+           given book always gets the same tile instead of flickering on rerender. */
+        .poster-fallback {
+            background-image: linear-gradient(135deg, var(--c1), var(--c2));
         }
     </style>
     <script>
+    const ICONS = {
+      search:   '<path stroke-linecap="round" stroke-linejoin="round" d="m21 21-4.35-4.35M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0Z"/>',
+      download: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+      upload:   '<path stroke-linecap="round" stroke-linejoin="round" d="M12 21V9m0 0 4 4m-4-4-4 4M4 7V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v2"/>',
+      pause:    '<path stroke-linecap="round" stroke-linejoin="round" d="M10 5v14M14 5v14"/>',
+      play:     '<path stroke-linecap="round" stroke-linejoin="round" d="M5 4.5v15l14-7.5-14-7.5Z"/>',
+      trash:    '<path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M5 7l1 13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-13M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/>',
+      folder:   '<path stroke-linecap="round" stroke-linejoin="round" d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>',
+      check:    '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>',
+      checkCircle: '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
+      warning:  '<path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/>',
+      error:    '<path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
+      question: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3m.08 4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/>',
+      refresh:  '<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v6h6M20 20v-6h-6M20 9A8 8 0 0 0 5.6 6.6L4 10m0 4a8 8 0 0 0 14.4 3.4L20 14"/>',
+      settings: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>',
+      list:     '<path stroke-linecap="round" stroke-linejoin="round" d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+      book:     '<path stroke-linecap="round" stroke-linejoin="round" d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20V2H6.5A2.5 2.5 0 0 0 4 4.5v15Z"/>',
+      close:    '<path stroke-linecap="round" stroke-linejoin="round" d="M6 6l12 12M18 6 6 18"/>',
+      plus:     '<path stroke-linecap="round" stroke-linejoin="round" d="M12 5v14M5 12h14"/>',
+      users:    '<path stroke-linecap="round" stroke-linejoin="round" d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm14 10v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+      clock:    '<path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m6-2a10 10 0 1 1-20 0 10 10 0 0 1 20 0Z"/>',
+      logout:   '<path stroke-linecap="round" stroke-linejoin="round" d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+      filter:   '<path stroke-linecap="round" stroke-linejoin="round" d="M3 4h18l-7 8v6l-4 2v-8L3 4Z"/>',
+      keyboard: '<path stroke-linecap="round" stroke-linejoin="round" d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M6 12h.01M10 12h.01M14 12h.01M18 12h.01M7 16h10M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>',
+      history:  '<path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2m-3 8a9 9 0 1 0-8.72-6.75M3 4v4h4"/>',
+      link:     '<path stroke-linecap="round" stroke-linejoin="round" d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
+    };
+
+    function icon(name, cls) {
+      const path = ICONS[name] || '';
+      return `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" class="${cls || 'w-5 h-5'}">${path}</svg>`;
+    }
+
     function app() {
   return {
+    // ---------- shell ----------
+    activeTab: 'search',
+    title: 'Search',
+    role: null,
+    username: null,
+    id: null,
+    torrentClientType: null,
+    goodreadsEnabled: false,
+    showShortcuts: false,
+
+    tabs() {
+      const t = [
+        { id: 'search', label: 'Search', icon: 'search' },
+        { id: 'status', label: 'Status', icon: 'list' },
+      ];
+      if (this.goodreadsEnabled) t.push({ id: 'goodreads', label: 'Goodreads', icon: 'book' });
+      if (this.role === 'admin') t.push({ id: 'settings', label: 'Settings', icon: 'settings' });
+      return t;
+    },
+
+    switchTab(tab) {
+      this.activeTab = tab;
+      if (tab === 'status') this.getTorrentStatus();
+      if (tab === 'goodreads') { this.fetchGoodreadsConfig(); this.fetchProcessedBooks(); }
+      if (tab === 'settings') this.fetchAppConfig();
+    },
+
+    // ---------- toasts ----------
+    toasts: [],
+    _toastId: 0,
+
+    toast(message, type = 'info', timeout = 4000) {
+      const id = ++this._toastId;
+      this.toasts.push({ id, message, type });
+      setTimeout(() => this.dismissToast(id), timeout);
+    },
+    dismissToast(id) {
+      this.toasts = this.toasts.filter(t => t.id !== id);
+    },
+    toastClasses(type) {
+      return {
+        success: 'border-emerald-500/40 bg-emerald-950/80 text-emerald-100',
+        error: 'border-red-500/40 bg-red-950/80 text-red-100',
+        info: 'border-brand-500/40 bg-brand-950/80 text-brand-100',
+      }[type] || 'border-white/10 bg-surface-800/90 text-white';
+    },
+    toastIcon(type) {
+      return { success: 'checkCircle', error: 'error', info: 'warning' }[type] || 'warning';
+    },
+
+    // ---------- search ----------
     query: '',
     results: [],
     loadingSearch: false,
     searchComplete: false,
     searchError: '',
+    searchAbort: null,
+    searchStartedAt: null,
+    searchElapsed: 0,
+    elapsedTimer: null,
+
+    sortBy: 'seeders',
+    minSeeders: 0,
+    resultFilter: '',
+    showFilters: false,
+
+    searchHistory: [],
+    showHistory: false,
+
+    knownTorrents: [],
+
     funnyMessages: [
         'Searching... This better be worth it!',
         'Hold on, this takes a while...',
@@ -65,197 +243,361 @@
     ],
     currentFunnyMessage: '',
     messageInterval: null,
-    username: null,
-    role: null,
-    id: null,
-    torrentClientType: null,
-
-
-    goodreadsEnabled: false,
-    goodreadsConfig: { goodreads_user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
-    processedBooks: [],
-    loadingGoodreads: false,
-    goodreadsError: '',
-    goodreadsSuccess: '',
-    validationResult: null,
-    pollingNow: false,
-
-    appConfig: {},
-    configSchema: {},
-    loadingConfig: false,
-    configError: '',
-    configSuccess: '',
-    testingTorrent: false,
-    testingJackett: false,
-    torrentTestResult: null,
-    jackettTestResult: null,
-
-    async fetchAppConfig() {
-        this.loadingConfig = true;
-        this.configError = '';
-        try {
-            const response = await fetch('/config');
-            if (!response.ok) throw new Error('Failed to fetch config');
-            const data = await response.json();
-            this.appConfig = {};
-            this.configSchema = {};
-            for (const [key, val] of Object.entries(data)) {
-                this.appConfig[key] = val.value;
-                this.configSchema[key] = val;
-            }
-        } catch (error) {
-            this.configError = error.message;
-        } finally {
-            this.loadingConfig = false;
-        }
-    },
-
-    async saveAppConfig() {
-        this.loadingConfig = true;
-        this.configError = '';
-        this.configSuccess = '';
-        try {
-            const response = await fetch('/config', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ configs: this.appConfig })
-            });
-            if (!response.ok) throw new Error('Failed to save config');
-            const data = await response.json();
-            this.configSuccess = data.message;
-            this.fetchAppConfig();
-        } catch (error) {
-            this.configError = error.message;
-        } finally {
-            this.loadingConfig = false;
-        }
-    },
-
-    async testTorrentConnection() {
-        this.testingTorrent = true;
-        this.torrentTestResult = null;
-        try {
-            const response = await fetch('/config/test-torrent', { method: 'POST' });
-            this.torrentTestResult = await response.json();
-        } catch (error) {
-            this.torrentTestResult = { success: false, message: error.message };
-        } finally {
-            this.testingTorrent = false;
-        }
-    },
-
-    async testJackettConnection() {
-        this.testingJackett = true;
-        this.jackettTestResult = null;
-        try {
-            const response = await fetch('/config/test-jackett', { method: 'POST' });
-            this.jackettTestResult = await response.json();
-        } catch (error) {
-            this.jackettTestResult = { success: false, message: error.message };
-        } finally {
-            this.testingJackett = false;
-        }
-    },
-
-    getConfigsByGroup(group) {
-        return Object.entries(this.configSchema).filter(([k, v]) => v.group === group);
-    },
 
     async search() {
-        if (!this.query) return;
+        if (!this.query.trim()) return;
+
+        // Cancel any search still in flight so a fast retype doesn't leave two
+        // requests racing to populate the results.
+        if (this.searchAbort) this.searchAbort.abort();
+        this.searchAbort = new AbortController();
+
         this.loadingSearch = true;
         this.searchComplete = false;
         this.searchError = '';
         this.results = [];
-        const shuffledMessages = [...this.funnyMessages].sort(() => Math.random() - 0.5);
+        this.showHistory = false;
+        this.searchStartedAt = Date.now();
+        this.searchElapsed = 0;
 
+        clearInterval(this.elapsedTimer);
+        this.elapsedTimer = setInterval(() => {
+            this.searchElapsed = Math.floor((Date.now() - this.searchStartedAt) / 1000);
+        }, 1000);
+
+        const shuffledMessages = [...this.funnyMessages].sort(() => Math.random() - 0.5);
         let index = 0;
+        this.currentFunnyMessage = shuffledMessages[0];
+        clearInterval(this.messageInterval);
         this.messageInterval = setInterval(() => {
-            this.currentFunnyMessage = shuffledMessages[index % shuffledMessages.length];
             index++;
+            this.currentFunnyMessage = shuffledMessages[index % shuffledMessages.length];
         }, 5000);
 
         try {
-            let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
-            if (!response.ok) throw new Error('Failed to fetch results');
-            let data = await response.json();
+            const url = `/search?query=${encodeURIComponent(this.query)}`;
+            const response = await fetch(url, { signal: this.searchAbort.signal });
+            if (!response.ok) {
+                const body = await response.json().catch(() => ({}));
+                throw new Error(body.detail || 'Failed to fetch results');
+            }
+            const data = await response.json();
             this.results = data.results || [];
+            // Sorting by seeders is meaningless against an indexer that does
+            // not report them, so fall back to newest-first in that case.
+            if (this.sortBy === 'seeders' && !this.hasSwarmData()) {
+                this.sortBy = 'newest';
+            }
+            this.rememberQuery(this.query);
+            if (this.results.length === 0) {
+                this.toast('No results found for that title', 'info');
+            }
         } catch (error) {
+            if (error.name === 'AbortError') return;
             this.searchError = error.message;
+            this.toast(error.message, 'error', 6000);
         } finally {
-            this.searchComplete = true;
-            this.loadingSearch = false;
+            if (!this.searchAbort || !this.searchAbort.signal.aborted) {
+                this.searchComplete = true;
+                this.loadingSearch = false;
+            }
             clearInterval(this.messageInterval);
+            clearInterval(this.elapsedTimer);
             this.currentFunnyMessage = '';
         }
     },
 
+    cancelSearch() {
+        if (this.searchAbort) this.searchAbort.abort();
+        this.loadingSearch = false;
+        this.searchComplete = false;
+        clearInterval(this.messageInterval);
+        clearInterval(this.elapsedTimer);
+        this.currentFunnyMessage = '';
+    },
+
+    // ---------- search history ----------
+    loadHistory() {
+        try {
+            this.searchHistory = JSON.parse(localStorage.getItem('abb.searchHistory') || '[]');
+        } catch { this.searchHistory = []; }
+    },
+    rememberQuery(q) {
+        const trimmed = q.trim();
+        if (!trimmed) return;
+        this.searchHistory = [trimmed, ...this.searchHistory.filter(h => h.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+        localStorage.setItem('abb.searchHistory', JSON.stringify(this.searchHistory));
+    },
+    useHistory(q) {
+        this.query = q;
+        this.showHistory = false;
+        this.search();
+    },
+    clearHistory() {
+        this.searchHistory = [];
+        localStorage.removeItem('abb.searchHistory');
+    },
+
+    // ---------- result presentation ----------
+    normalizeTitle(s) {
+        return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    },
+
+    // Words too common to carry any signal about which book this is.
+    STOPWORDS: ['the', 'and', 'for', 'unabridged', 'audiobook', 'mp3', 'm4b',
+                'read', 'narration', 'narrated', 'by', 'kbps', 'remaster'],
+
+    titleTokens(s) {
+        return new Set(
+            this.normalizeTitle(s)
+                .split(' ')
+                .filter(w => w.length >= 3 && !this.STOPWORDS.includes(w))
+        );
+    },
+
+    // A result counts as "already added" when its distinctive words are mostly
+    // present in a torrent already in the client. Prefix or exact matching
+    // fails here because each client mangles names differently and the author
+    // is often present in one name and absent from the other. This is a hint,
+    // not a guard -- Add stays enabled either way.
+    isAlreadyAdded(result) {
+        const a = this.titleTokens(result.Title);
+        if (a.size === 0) return false;
+        return this.knownTorrents.some(t => {
+            const b = this.titleTokens(t.name);
+            if (b.size === 0) return false;
+            let shared = 0;
+            for (const w of a) if (b.has(w)) shared++;
+            return shared / Math.min(a.size, b.size) >= 0.75;
+        });
+    },
+
+    filteredResults() {
+        let out = [...this.results];
+
+        if (this.minSeeders > 0) {
+            out = out.filter(r => (r.Seeders ?? 0) >= this.minSeeders);
+        }
+        if (this.resultFilter.trim()) {
+            const needle = this.resultFilter.toLowerCase();
+            out = out.filter(r => (r.Title || '').toLowerCase().includes(needle));
+        }
+
+        const sorters = {
+            seeders: (a, b) => (b.Seeders ?? 0) - (a.Seeders ?? 0),
+            sizeDesc: (a, b) => (b.Size ?? 0) - (a.Size ?? 0),
+            sizeAsc: (a, b) => (a.Size ?? 0) - (b.Size ?? 0),
+            newest: (a, b) => new Date(b.PublishDate || 0) - new Date(a.PublishDate || 0),
+        };
+        if (sorters[this.sortBy]) out.sort(sorters[this.sortBy]);
+        return out;
+    },
+
+    maxSeeders() {
+        return this.results.reduce((m, r) => Math.max(m, r.Seeders ?? 0), 0);
+    },
+
+    leechers(result) {
+        // Jackett reports Peers separately from Seeders for this indexer, so
+        // it is already the leecher count rather than the swarm total.
+        return result.Peers ?? 0;
+    },
+
+    // AudiobookBay publishes no swarm statistics, so Jackett returns the same
+    // placeholder (Seeders 1, Peers 0) for every release. Rendering that would
+    // label every result as nearly dead, so the swarm UI only appears when the
+    // numbers actually vary -- which they will for indexers that report real
+    // data.
+    hasSwarmData() {
+        if (this.results.length < 2) return false;
+        const key = r => `${r.Seeders ?? 0}/${r.Peers ?? 0}`;
+        const first = key(this.results[0]);
+        return this.results.some(r => key(r) !== first);
+    },
+
+    formatSize(bytes) {
+        if (!bytes || bytes < 0) return 'Unknown';
+        const gb = bytes / 1024 / 1024 / 1024;
+        if (gb >= 1) return gb.toFixed(2) + ' GB';
+        return (bytes / 1024 / 1024).toFixed(0) + ' MB';
+    },
+
+    formatAge(dateStr) {
+        if (!dateStr) return null;
+        const then = new Date(dateStr);
+        if (isNaN(then)) return null;
+        const days = Math.floor((Date.now() - then) / 86400000);
+        if (days < 1) return 'today';
+        if (days < 30) return days + 'd ago';
+        if (days < 365) return Math.floor(days / 30) + 'mo ago';
+        return Math.floor(days / 365) + 'y ago';
+    },
+
+    seederTextClass(n) {
+        if (n === undefined || n === null) return 'text-surface-400';
+        if (n >= 10) return 'text-emerald-400';
+        if (n >= 3) return 'text-amber-400';
+        if (n >= 1) return 'text-orange-400';
+        return 'text-red-400';
+    },
+
+    seederClass(n) {
+        if (n === undefined || n === null) return 'text-surface-400 bg-surface-700/50';
+        if (n >= 10) return 'text-emerald-300 bg-emerald-500/15';
+        if (n >= 3) return 'text-amber-300 bg-amber-500/15';
+        if (n >= 1) return 'text-orange-300 bg-orange-500/15';
+        return 'text-red-300 bg-red-500/15';
+    },
+
+    // Cover art goes through the app rather than being loaded directly:
+    // AudiobookBay poster URLs are often plain http (mixed-content blocked on
+    // an https deployment) and their hosts commonly refuse hotlinked requests.
+    posterFailed: {},
+
+    posterSrc(result) {
+        if (!result.Poster || this.posterFailed[result.Guid]) return null;
+        return '/image?url=' + encodeURIComponent(result.Poster);
+    },
+
+    // Some posters 404 or point at hosts that refuse us even server-side, so a
+    // load failure has to fall back to the gradient tile rather than leaving an
+    // empty box.
+    onPosterError(result) {
+        this.posterFailed[result.Guid] = true;
+    },
+
+    showPosterFallback(result) {
+        return !this.posterSrc(result);
+    },
+
+    // Jackett puts the AudiobookBay page URL in Details; Guid is usually the
+    // same URL and acts as a fallback for indexers that only set that.
+    detailsUrl(result) {
+        const candidate = result.Details || result.Guid || '';
+        return /^https?:\/\//i.test(candidate) ? candidate : null;
+    },
+
+    // Deterministic gradient for results with no cover art.
+    posterStyle(title) {
+        let hash = 0;
+        const s = title || '';
+        for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) % 360;
+        return `--c1: hsl(${hash}, 45%, 28%); --c2: hsl(${(hash + 55) % 360}, 50%, 15%)`;
+    },
+
+    initials(title) {
+        return (title || '?').split(/\s+/).filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+    },
+
+    // ---------- add ----------
     loadingAdd: {},
     addError: {},
-    
-    async add(url) {
+
+    async add(url, result) {
         this.loadingAdd[url] = true;
         this.addError[url] = '';
-        this.searchError = '';
 
-        
         try {
-            let requestBody = { url };
-
-            let response = await fetch('/add', {
+            const response = await fetch('/add', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(requestBody)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
             });
-            let data = await response.json();
-            if (data.status !== 'ok') throw new Error(data.message || 'Error adding torrent');
-            this.searchComplete = false;
-            this.searchError = 'Successfully added torrent!';
+            const data = await response.json();
+            if (!response.ok || data.status !== 'ok') {
+                throw new Error(data.detail || data.message || 'Error adding torrent');
+            }
+            this.toast(`Added "${(result?.Title || 'torrent').slice(0, 60)}"`, 'success');
+            this.refreshKnownTorrents();
         } catch (error) {
             this.addError[url] = error.message;
+            this.toast(error.message, 'error', 6000);
         } finally {
             this.loadingAdd[url] = false;
         }
     },
 
-    async keydown(event) {
-      this.searchComplete = false;
+    async refreshKnownTorrents() {
+        try {
+            const response = await fetch('/list');
+            if (response.ok) this.knownTorrents = await response.json();
+        } catch (e) { /* non-fatal: duplicate hinting just goes quiet */ }
     },
 
+    // ---------- torrent status ----------
     torrentStatus: [],
     loadingTorrentStatus: false,
-
+    statusPollTimer: null,
     refreshInterval: 4000,
+    showCompleted: false,
 
-    getTorrentStatus: function() {
+    getTorrentStatus() {
         this.loadingTorrentStatus = true;
         fetch('/list')
             .then(response => {
-                if (!response.ok) {
-                    throw new Error('Failed to fetch torrent status');
-                }
+                if (!response.ok) throw new Error('Failed to fetch torrent status');
                 return response.json();
             })
             .then(data => {
                 this.torrentStatus = data;
+                this.knownTorrents = data;
             })
-            .catch(error => {
-                console.error(error);
-            })
+            .catch(error => console.error(error))
             .finally(() => {
                 this.loadingTorrentStatus = false;
-                if (this.activeTab === 'status') {
-                    setTimeout(() => this.getTorrentStatus(), this.refreshInterval);
-                }
+                this.scheduleStatusPoll();
             });
     },
-    activeTab: 'search',
-    query: '',
-    results: [],
-    loadingSearch: false,
-    searchComplete: false,
-    searchError: '',
-    title: 'Search',
+
+    // Only keep polling while the Status tab is actually visible on screen.
+    // The old version recursed forever and kept hitting the torrent client in
+    // background tabs.
+    scheduleStatusPoll() {
+        clearTimeout(this.statusPollTimer);
+        if (this.activeTab !== 'status' || document.hidden) return;
+        this.statusPollTimer = setTimeout(() => this.getTorrentStatus(), this.refreshInterval);
+    },
+
+    statusGroups() {
+        const active = [], seeding = [], stopped = [], other = [];
+        for (const t of this.torrentStatus) {
+            if (t.status === 'Stopped') stopped.push(t);
+            else if (t.status === 'Seeding') seeding.push(t);
+            else if ((t.status || '').startsWith('Downloading')) active.push(t);
+            else other.push(t);
+        }
+        return [
+            { key: 'active', label: 'Downloading', items: active },
+            { key: 'seeding', label: 'Seeding', items: seeding },
+            { key: 'other', label: 'Other', items: other },
+            { key: 'stopped', label: 'Paused', items: stopped },
+        ].filter(g => g.items.length);
+    },
+
+    totalSize() {
+        return this.torrentStatus.reduce((sum, t) => sum + (t.total_size || 0), 0);
+    },
+    activeCount() {
+        return this.torrentStatus.filter(t => (t.status || '').startsWith('Downloading')).length;
+    },
+    seedingCount() {
+        return this.torrentStatus.filter(t => t.status === 'Seeding').length;
+    },
+
+    statusBadge(status) {
+        if (status === 'Seeding') return 'bg-emerald-500/15 text-emerald-300 ring-emerald-500/30';
+        if ((status || '').startsWith('Downloading')) return 'bg-brand-500/15 text-brand-300 ring-brand-500/30';
+        if (status === 'Stopped') return 'bg-surface-500/15 text-surface-300 ring-surface-500/30';
+        if (status === 'Error' || status === 'Missing Files') return 'bg-red-500/15 text-red-300 ring-red-500/30';
+        return 'bg-amber-500/15 text-amber-300 ring-amber-500/30';
+    },
+
+    statusIcon(status) {
+        if (status === 'Seeding') return 'upload';
+        if ((status || '').startsWith('Downloading')) return 'download';
+        if (status === 'Stopped') return 'pause';
+        return 'clock';
+    },
 
     formatEta(seconds) {
         if (!seconds || seconds < 0) return 'Unknown';
@@ -264,57 +606,172 @@
         return Math.floor(seconds / 3600) + ' hr ' + Math.floor((seconds % 3600) / 60) + ' min';
     },
 
-    async setTitle() {
+    // Ratio rendered against a 1.0 target rather than being crammed into the
+    // progress bar, which used to make seeding torrents look half-downloaded.
+    ratioPercent(ratio) {
+        return Math.min(100, Math.max(0, (ratio || 0) * 100));
+    },
+
+    // ---------- torrent actions ----------
+    deletingTorrent: null,
+    deleteTorrentError: null,
+    confirmDelete: false,
+    torrentToDelete: null,
+
+    deleteTorrent(torrentId) {
+        this.torrentToDelete = torrentId;
+        this.deleteTorrentError = null;
+        this.confirmDelete = true;
+    },
+
+    async confirmDeleteTorrent() {
+        if (!this.torrentToDelete) return;
+        this.deletingTorrent = this.torrentToDelete;
+        this.deleteTorrentError = null;
+
         try {
-            const response = await fetch('/title');
+            const response = await fetch(`/torrent/${this.torrentToDelete}?delete_data=true`, { method: 'DELETE' });
             if (!response.ok) {
-                throw new Error('Failed to fetch title');
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to delete torrent');
             }
-            const data = await response.json();
-            document.title = data.title;
-            this.title = data.title;
+            this.getTorrentStatus();
+            this.confirmDelete = false;
+            this.torrentToDelete = null;
+            this.toast('Torrent deleted', 'success');
         } catch (error) {
-            console.error('Error fetching title:', error);
+            console.error('Error deleting torrent:', error);
+            this.deleteTorrentError = error.message;
+            this.toast(error.message, 'error', 6000);
+        } finally {
+            this.deletingTorrent = null;
         }
     },
 
-    init() {
-        this.fetchRole();
-        this.setTitle();
-        this.fetchTorrentClientType();
-        this.fetchGoodreadsEnabled();
+    cancelDeleteTorrent() {
+        this.confirmDelete = false;
+        this.torrentToDelete = null;
+        this.deleteTorrentError = null;
     },
 
-    async fetchRole() {
+    async toggleTorrent(torrentId, status) {
         try {
-            const response = await fetch('/role');
+            const action = status === 'Stopped' ? 'play' : 'pause';
+            const response = await fetch(`/torrent/${torrentId}/${action}`, { method: 'POST' });
             if (!response.ok) {
-                throw new Error('Failed to fetch role');
+                const errorData = await response.json();
+                throw new Error(errorData.detail || `Failed to ${action} torrent`);
             }
-            const data = await response.json();
-            this.role = data.role;
-            if (this.role === null) {
-                window.location.href = '/login';
-            }
+            this.getTorrentStatus();
         } catch (error) {
-            console.error('Error fetching role:', error);
-            window.location.href = '/login';
+            console.error('Error toggling torrent:', error);
+            this.toast(error.message, 'error');
         }
     },
 
-    async fetchTorrentClientType() {
+    // ---------- category modal ----------
+    showCategoryModal: false,
+    categoryTorrentId: null,
+    newCategory: '',
+    settingCategory: false,
+    categoryError: '',
+
+    openCategoryModal(torrentId) {
+        this.categoryTorrentId = torrentId;
+        this.newCategory = '';
+        this.categoryError = '';
+        this.showCategoryModal = true;
+    },
+
+    closeCategoryModal() {
+        this.showCategoryModal = false;
+        this.categoryTorrentId = null;
+        this.newCategory = '';
+        this.categoryError = '';
+    },
+
+    async setCategory() {
+        if (!this.newCategory.trim()) {
+            this.categoryError = 'Category name is required';
+            return;
+        }
+        this.settingCategory = true;
+        this.categoryError = '';
         try {
-            const response = await fetch('/torrent-client-type');
+            const response = await fetch(`/torrent/${this.categoryTorrentId}/category`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category: this.newCategory.trim() })
+            });
             if (!response.ok) {
-                throw new Error('Failed to fetch torrent client type');
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to set category');
             }
-            const data = await response.json();
-            this.torrentClientType = data.torrent_client_type;
+            this.closeCategoryModal();
+            this.getTorrentStatus();
+            this.toast('Category updated', 'success');
         } catch (error) {
-            console.error('Error fetching torrent client type:', error);
-            this.torrentClientType = 'transmission';
+            console.error('Error setting category:', error);
+            this.categoryError = error.message;
+        } finally {
+            this.settingCategory = false;
         }
     },
+
+    // ---------- beets candidates ----------
+    showCandidateDialog: false,
+    candidates: [],
+    selectedCandidate: null,
+    selectedTorrent: null,
+
+    showCandidates(torrent) {
+        this.selectedCandidate = null;
+        this.candidates = torrent.candidates;
+        if (!this.candidates || this.candidates.length === 0) {
+          this.candidates = [{ match: 0, artist: '', album: 'Use as is', cover: '', id: 'asis', length: '' }];
+        }
+        this.selectedTorrent = torrent;
+        this.showCandidateDialog = true;
+    },
+
+    async autoimport() {
+        try {
+            const response = await fetch('/autoimport', { method: 'POST' });
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.detail || 'Failed to autoimport');
+            }
+            this.getTorrentStatus();
+        } catch (error) {
+            console.error(error);
+        }
+    },
+
+    async selectCandidate(candidate) {
+        try {
+            const response = await fetch(`/selectCandidate/${this.selectedTorrent.hash_string}/${candidate.id}`, { method: 'POST' });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Failed to select candidate');
+            }
+            this.autoimport();
+            this.toast('Import candidate selected', 'success');
+        } catch (error) {
+            console.error('Error selecting candidate:', error);
+            this.toast(error.message, 'error');
+        } finally {
+            this.showCandidateDialog = false;
+        }
+    },
+
+    // ---------- goodreads ----------
+    goodreadsConfig: { goodreads_user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
+    processedBooks: [],
+    loadingGoodreads: false,
+    goodreadsError: '',
+    goodreadsSuccess: '',
+    validationResult: null,
+    pollingNow: false,
 
     async fetchGoodreadsEnabled() {
         try {
@@ -334,8 +791,7 @@
         try {
             const response = await fetch('/goodreads/config');
             if (!response.ok) throw new Error('Failed to fetch config');
-            const data = await response.json();
-            this.goodreadsConfig = data;
+            this.goodreadsConfig = await response.json();
         } catch (error) {
             this.goodreadsError = error.message;
         } finally {
@@ -359,11 +815,12 @@
                 })
             });
             if (!response.ok) throw new Error('Failed to save config');
-            const data = await response.json();
-            this.goodreadsConfig = data;
+            this.goodreadsConfig = await response.json();
             this.goodreadsSuccess = 'Configuration saved successfully!';
+            this.toast('Goodreads configuration saved', 'success');
         } catch (error) {
             this.goodreadsError = error.message;
+            this.toast(error.message, 'error');
         } finally {
             this.loadingGoodreads = false;
         }
@@ -400,10 +857,12 @@
             if (!response.ok) throw new Error('Poll failed');
             const result = await response.json();
             this.goodreadsSuccess = result.message || 'Poll completed';
+            this.toast(this.goodreadsSuccess, 'success');
             this.fetchGoodreadsConfig();
             this.fetchProcessedBooks();
         } catch (error) {
             this.goodreadsError = error.message;
+            this.toast(error.message, 'error');
         } finally {
             this.pollingNow = false;
         }
@@ -436,170 +895,227 @@
             if (!response.ok) throw new Error('Failed to clear books');
             this.fetchProcessedBooks();
             this.goodreadsSuccess = 'All processed books cleared';
+            this.toast(this.goodreadsSuccess, 'success');
         } catch (error) {
             this.goodreadsError = error.message;
         }
     },
 
-    deletingTorrent: null,
-    deleteTorrentError: null,
-    confirmDelete: false,
-    torrentToDelete: null,
+    // ---------- settings ----------
+    appConfig: {},
+    configSchema: {},
+    savedConfig: {},
+    loadingConfig: false,
+    configError: '',
+    configSuccess: '',
+    testingTorrent: false,
+    testingJackett: false,
+    torrentTestResult: null,
+    jackettTestResult: null,
+    settingsSection: 'app',
 
-    async deleteTorrent(torrentId) {
-        this.torrentToDelete = torrentId;
-        this.confirmDelete = true;
+    settingsSections() {
+        const s = [
+            { id: 'app', label: 'General', icon: 'settings' },
+            { id: 'jackett', label: 'Jackett', icon: 'search' },
+            { id: 'torrent', label: 'Torrent client', icon: 'download' },
+            { id: 'cleanup', label: 'Cleanup', icon: 'trash' },
+            { id: 'beets', label: 'Beets', icon: 'book' },
+            { id: 'goodreads', label: 'Goodreads', icon: 'book' },
+        ];
+        return s;
     },
 
-    async confirmDeleteTorrent() {
-        if (!this.torrentToDelete) return;
-        this.deletingTorrent = this.torrentToDelete;
-        this.deleteTorrentError = null;
+    hasUnsavedChanges() {
+        return JSON.stringify(this.appConfig) !== JSON.stringify(this.savedConfig);
+    },
 
+    async fetchAppConfig() {
+        this.loadingConfig = true;
+        this.configError = '';
         try {
-            const response = await fetch(`/torrent/${this.torrentToDelete}?delete_data=true`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to delete torrent');
+            const response = await fetch('/config');
+            if (!response.ok) throw new Error('Failed to fetch config');
+            const data = await response.json();
+            this.appConfig = {};
+            this.configSchema = {};
+            for (const [key, val] of Object.entries(data)) {
+                this.appConfig[key] = val.value;
+                this.configSchema[key] = val;
             }
-
-            this.getTorrentStatus();
-            this.confirmDelete = false;
-            this.torrentToDelete = null;
-            this.deletingTorrent = null;
+            this.savedConfig = JSON.parse(JSON.stringify(this.appConfig));
         } catch (error) {
-            console.error('Error deleting torrent:', error);
-            this.deleteTorrentError = error.message;
+            this.configError = error.message;
         } finally {
-            this.deletingTorrent = null;
+            this.loadingConfig = false;
         }
     },
 
-    cancelDeleteTorrent() {
-        this.confirmDelete = false;
-        this.torrentToDelete = null;
-        this.deleteTorrentError = null;
-    },
-
-    async toggleTorrent(torrentId, status) {
+    async saveAppConfig() {
+        this.loadingConfig = true;
+        this.configError = '';
+        this.configSuccess = '';
         try {
-            const action = status === 'Stopped' ? 'play' : 'pause';
-            const response = await fetch(`/torrent/${torrentId}/${action}`, {
-                method: 'POST'
+            const response = await fetch('/config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ configs: this.appConfig })
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `Failed to ${action} torrent`);
-            }
-
-            this.getTorrentStatus();
+            if (!response.ok) throw new Error('Failed to save config');
+            const data = await response.json();
+            this.configSuccess = data.message;
+            this.toast(data.message || 'Configuration saved', 'success');
+            await this.fetchAppConfig();
         } catch (error) {
-            console.error(`Error toggling torrent:`, error);
+            this.configError = error.message;
+            this.toast(error.message, 'error');
+        } finally {
+            this.loadingConfig = false;
         }
     },
 
-    showCategoryModal: false,
-    categoryTorrentId: null,
-    newCategory: '',
-    settingCategory: false,
-    categoryError: '',
-
-    openCategoryModal(torrentId) {
-        this.categoryTorrentId = torrentId;
-        this.newCategory = '';
-        this.categoryError = '';
-        this.showCategoryModal = true;
+    discardConfigChanges() {
+        this.appConfig = JSON.parse(JSON.stringify(this.savedConfig));
     },
 
-    closeCategoryModal() {
+    async testTorrentConnection() {
+        this.testingTorrent = true;
+        this.torrentTestResult = null;
+        try {
+            const response = await fetch('/config/test-torrent', { method: 'POST' });
+            this.torrentTestResult = await response.json();
+        } catch (error) {
+            this.torrentTestResult = { success: false, message: error.message };
+        } finally {
+            this.testingTorrent = false;
+        }
+    },
+
+    async testJackettConnection() {
+        this.testingJackett = true;
+        this.jackettTestResult = null;
+        try {
+            const response = await fetch('/config/test-jackett', { method: 'POST' });
+            this.jackettTestResult = await response.json();
+        } catch (error) {
+            this.jackettTestResult = { success: false, message: error.message };
+        } finally {
+            this.testingJackett = false;
+        }
+    },
+
+    getConfigsByGroup(group) {
+        return Object.entries(this.configSchema).filter(([k, v]) => v.group === group);
+    },
+
+    isBooleanConfig(key, schema) {
+        return schema.type === 'boolean' || typeof this.appConfig[key] === 'boolean';
+    },
+
+    // ---------- bootstrap ----------
+    async setTitle() {
+        try {
+            const response = await fetch('/title');
+            if (!response.ok) throw new Error('Failed to fetch title');
+            const data = await response.json();
+            document.title = data.title;
+            this.title = data.title;
+        } catch (error) {
+            console.error('Error fetching title:', error);
+        }
+    },
+
+    async fetchRole() {
+        try {
+            const response = await fetch('/role');
+            if (!response.ok) throw new Error('Failed to fetch role');
+            const data = await response.json();
+            this.role = data.role;
+            this.username = data.username ?? null;
+            if (this.role === null) window.location.href = '/login';
+        } catch (error) {
+            console.error('Error fetching role:', error);
+            window.location.href = '/login';
+        }
+    },
+
+    async fetchTorrentClientType() {
+        try {
+            const response = await fetch('/torrent-client-type');
+            if (!response.ok) throw new Error('Failed to fetch torrent client type');
+            const data = await response.json();
+            this.torrentClientType = data.torrent_client_type;
+        } catch (error) {
+            console.error('Error fetching torrent client type:', error);
+            this.torrentClientType = 'transmission';
+        }
+    },
+
+    anyModalOpen() {
+        return this.confirmDelete || this.showCategoryModal || this.showCandidateDialog || this.showShortcuts;
+    },
+
+    closeAllModals() {
+        this.confirmDelete = false;
         this.showCategoryModal = false;
-        this.categoryTorrentId = null;
-        this.newCategory = '';
-        this.categoryError = '';
+        this.showCandidateDialog = false;
+        this.showShortcuts = false;
+        this.showHistory = false;
     },
 
-    async setCategory() {
-        if (!this.newCategory.trim()) {
-            this.categoryError = 'Category name is required';
+    handleShortcut(event) {
+        const tag = (event.target.tagName || '').toLowerCase();
+        const typing = tag === 'input' || tag === 'textarea' || tag === 'select' || event.target.isContentEditable;
+
+        if (event.key === 'Escape') {
+            this.closeAllModals();
+            if (typing) event.target.blur();
             return;
         }
-        this.settingCategory = true;
-        this.categoryError = '';
-        try {
-            const response = await fetch(`/torrent/${this.categoryTorrentId}/category`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ category: this.newCategory.trim() })
-            });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to set category');
+        if (typing || event.metaKey || event.ctrlKey || event.altKey) return;
+
+        if (event.key === '/') {
+            event.preventDefault();
+            this.activeTab = 'search';
+            this.$nextTick(() => this.$refs.searchInput?.focus());
+            return;
+        }
+        if (event.key === '?') {
+            event.preventDefault();
+            this.showShortcuts = true;
+            return;
+        }
+        // "g" then a letter jumps between tabs, the way Jellyseerr and GitHub do.
+        if (this._awaitingG) {
+            this._awaitingG = false;
+            const map = { s: 'search', t: 'status', g: 'goodreads', c: 'settings' };
+            const target = map[event.key.toLowerCase()];
+            if (target && this.tabs().some(t => t.id === target)) {
+                event.preventDefault();
+                this.switchTab(target);
             }
-            this.closeCategoryModal();
-            this.getTorrentStatus();
-        } catch (error) {
-            console.error('Error setting category:', error);
-            this.categoryError = error.message;
-        } finally {
-            this.settingCategory = false;
+            return;
+        }
+        if (event.key.toLowerCase() === 'g') {
+            this._awaitingG = true;
+            setTimeout(() => { this._awaitingG = false; }, 1200);
         }
     },
+    _awaitingG: false,
 
+    init() {
+        this.fetchRole();
+        this.setTitle();
+        this.fetchTorrentClientType();
+        this.fetchGoodreadsEnabled();
+        this.loadHistory();
+        this.refreshKnownTorrents();
 
-    showCandidateDialog: false,
-    selectedCandidate: null,
-    selectedTorrent: null,
-    showCandidates(torrent) {
-        this.selectedCandidate = null;
-        this.candidates = torrent.candidates;
-        if (!this.candidates || this.candidates.length === 0) {
-          this.candidates = [{
-            "match": 0,
-            "artist": "",
-            "album": "Use as is",
-            "cover": "",
-            "id": "asis",
-            "length": "",
-          }];
-        }
-        this.selectedTorrent = torrent;
-        this.showCandidateDialog = true;
-    },
-    async autoimport() {
-        fetch('/autoimport', {
-            method: 'POST'
-        })
-        .then(response => {
-            if (!response.ok) {
-                return response.json().then(err => {throw new Error(err.detail || 'Failed to autoimport')});
-            }
-            this.getTorrentStatus();
-        })
-        .catch(error => {
-            console.error(error);
+        document.addEventListener('keydown', (e) => this.handleShortcut(e));
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this.activeTab === 'status') this.getTorrentStatus();
+            else this.scheduleStatusPoll();
         });
-    },
-    async selectCandidate(candidate) {
-        try {
-            const response = await fetch(`/selectCandidate/${this.selectedTorrent.hash_string}/${candidate.id}`, {
-                method: 'POST'
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to select candidate');
-            } else {
-                this.autoimport();
-            }
-        } catch (error) {
-            console.error('Error selecting candidate:', error);
-        } finally {
-            this.showCandidateDialog = false;
-        }
     }
   }
 }
@@ -607,423 +1123,850 @@
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
 
-<body class="bg-gray-800 text-white p-6" x-data="app()" x-init="init">
+<body class="min-h-screen text-surface-100 font-sans antialiased pb-24 sm:pb-10" x-data="app()" x-init="init" x-cloak>
 
-    <div class="max-w-3xl mx-auto mb-6 flex justify-center">
-        <button @click="activeTab = 'search'" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'search', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'search'}" class="rounded-l">Search</button>
-        <button @click="activeTab = 'status'; getTorrentStatus();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'status', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'status'}">Status</button>
-        <button x-show="goodreadsEnabled" @click="activeTab = 'goodreads'; fetchGoodreadsConfig(); fetchProcessedBooks();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'goodreads', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'goodreads'}">Goodreads</button>
-        <button x-show="role === 'admin'" @click="activeTab = 'settings'; fetchAppConfig();" :class="{'bg-gray-700 text-white px-4 py-2': activeTab === 'settings', 'text-gray-400 px-4 py-2 hover:bg-gray-700 hover:text-white': activeTab !== 'settings'}" class="rounded-r">Settings</button>
-    </div>
+    <!-- ============ TOP NAV ============ -->
+    <header class="sticky top-0 z-40 border-b border-white/5 bg-surface-950/80 backdrop-blur-xl">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6">
+            <div class="flex items-center gap-3 sm:gap-6 h-16">
 
-    <div x-show="activeTab === 'search'" class="max-w-3xl mx-auto mt-6">
-        <h2 class="text-2xl font-bold mb-4" x-text="title"></h2>
-        <div class="flex gap-2">
-            <input type="text" x-model="query" @input="keydown" autocomplete="off" @keydown.enter="search" class="border p-2 flex-grow rounded bg-gray-600 text-white" placeholder="Search...">
-            <button @click="search" :disabled="loadingSearch" class="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                <span x-show="loadingSearch" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                Search
-            </button>
-        </div>
-        <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
-        <p x-show="loadingSearch" class="text-gray-400 mt-2 italic" x-text="currentFunnyMessage"></p>
-
-        <div class="max-w-3xl mx-auto mt-6" x-show="results.length">
-            <template x-for="result in results" :key="result.Guid">
-                <div class="bg-gray-700 p-4 rounded shadow mb-2 flex items-center gap-4">
-                    <img :src="result.Poster" x-show="result.Poster" class="w-16 h-16 object-cover rounded">
-                    <div class="flex-grow w-3/4">
-                        <h2 class="font-bold break-all" x-text="result.Title"></h2>
-                        <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
+                <div class="flex items-center gap-2.5 shrink-0">
+                    <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-white shadow-lg shadow-brand-900/50">
+                        <span x-html="icon('book', 'w-5 h-5')"></span>
                     </div>
-                    <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
-                        <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                        Add
-                    </button>
+                    <span class="font-semibold text-white hidden sm:block truncate max-w-[12rem]" x-text="title"></span>
                 </div>
-                <p x-show="addError[result.MagnetUri || result.Link]" class="text-red-500 text-sm mt-1" x-text="addError[result.MagnetUri || result.Link]"></p>
+
+                <!-- Persistent search: available from any tab, not just Search -->
+                <div class="flex-1 max-w-xl relative">
+                    <div class="relative">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-surface-400 pointer-events-none" x-html="icon('search', 'w-4 h-4')"></span>
+                        <input type="text"
+                               x-ref="searchInput"
+                               x-model="query"
+                               @focus="showHistory = searchHistory.length > 0"
+                               @click.away="showHistory = false"
+                               @keydown.enter="activeTab = 'search'; search()"
+                               @keydown.escape="showHistory = false"
+                               autocomplete="off"
+                               class="w-full pl-9 pr-16 py-2 rounded-lg bg-surface-900/70 border border-white/10 text-sm text-white placeholder-surface-500 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition"
+                               placeholder="Search audiobooks...">
+                        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-surface-500 border border-white/10 rounded px-1.5 py-0.5 hidden sm:block">/</kbd>
+                    </div>
+
+                    <!-- Recent searches -->
+                    <div x-show="showHistory && searchHistory.length"
+                         x-transition
+                         class="absolute top-full mt-2 w-full panel shadow-2xl overflow-hidden z-50">
+                        <div class="flex items-center justify-between px-3 py-2 border-b border-white/5">
+                            <span class="text-[11px] uppercase tracking-wide text-surface-400 font-medium">Recent searches</span>
+                            <button @click="clearHistory()" class="text-[11px] text-surface-400 hover:text-white transition">Clear</button>
+                        </div>
+                        <template x-for="h in searchHistory" :key="h">
+                            <button @click="activeTab = 'search'; useHistory(h)"
+                                    class="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-surface-200 hover:bg-white/5 transition text-left">
+                                <span class="text-surface-500 shrink-0" x-html="icon('history', 'w-3.5 h-3.5')"></span>
+                                <span class="truncate" x-text="h"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Desktop tabs -->
+                <nav class="hidden sm:flex items-center gap-1 shrink-0">
+                    <template x-for="tab in tabs()" :key="tab.id">
+                        <button @click="switchTab(tab.id)"
+                                :class="activeTab === tab.id ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/40' : 'text-surface-400 hover:text-white hover:bg-white/5'"
+                                class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition">
+                            <span x-html="icon(tab.icon, 'w-4 h-4')"></span>
+                            <span class="hidden lg:block" x-text="tab.label"></span>
+                        </button>
+                    </template>
+                </nav>
+
+                <div class="flex items-center gap-2 shrink-0">
+                    <button @click="showShortcuts = true"
+                            title="Keyboard shortcuts (?)"
+                            class="hidden sm:flex text-surface-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5"
+                            x-html="icon('keyboard', 'w-4 h-4')"></button>
+                    <a href="/logout"
+                       title="Log out"
+                       class="text-surface-500 hover:text-white transition p-1.5 rounded-lg hover:bg-white/5"
+                       x-html="icon('logout', 'w-4 h-4')"></a>
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-xs font-semibold text-white ring-2 ring-white/10"
+                         :title="role === 'admin' ? 'Administrator' : 'User'"
+                         x-text="(username || role || '?').charAt(0).toUpperCase()"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ============ MOBILE BOTTOM TAB BAR ============ -->
+    <nav class="sm:hidden fixed bottom-0 inset-x-0 z-40 border-t border-white/10 bg-surface-950/95 backdrop-blur-xl">
+        <div class="flex items-stretch">
+            <template x-for="tab in tabs()" :key="tab.id">
+                <button @click="switchTab(tab.id)"
+                        :class="activeTab === tab.id ? 'text-brand-400' : 'text-surface-500'"
+                        class="flex-1 flex flex-col items-center gap-1 py-2.5 transition">
+                    <span x-html="icon(tab.icon, 'w-5 h-5')"></span>
+                    <span class="text-[10px] font-medium" x-text="tab.label"></span>
+                </button>
             </template>
         </div>
+    </nav>
 
-        <p class="max-w-xl mx-auto mt-6 text-center text-gray-400" x-show="searchComplete && results.length === 0 && query">No results found. Try a different search term!</p>
-    </div>
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
 
-    <div x-show="activeTab === 'status'" class="max-w-3xl mx-auto mt-6 px-2">
-      <h2 class="text-2xl font-bold mb-4">Torrent Status</h2>
-      
-      <template x-for="torrent in torrentStatus" :key="torrent.id">
-        <div class="bg-gray-700 p-4 rounded-lg shadow-md mb-3">
-          <div class="flex justify-between items-start mb-2">
-            <div class="flex items-center gap-2 flex-1">
-              <div class="flex-shrink-0">
-                <i x-show="torrent.status === 'Seeding'" class="fas fa-arrow-up text-green-500"></i>
-                <i x-show="torrent.status === 'Downloading'" class="fas fa-arrow-down text-blue-500"></i>
-                <i x-show="torrent.status === 'Stopped'" class="fas fa-pause text-gray-500"></i>
-              </div>
-              <h3 class="font-bold text-sm sm:text-base break-all pr-2" x-text="torrent.name"></h3>
-            </div>
-            <div class="flex items-center gap-2" x-show="torrent.use_beets_import && torrent.percent_done >= 100">
-              <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.importError" class="fas fa-exclamation-circle text-red-500 cursor-pointer" title="Import Error" @click="showCandidates(torrent)"></i>
-              <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && !torrent.imported && !torrent.importError" class="fas fa-question-circle text-yellow-500" title="Not Imported"></i>
-              <i x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.imported && !torrent.importError" class="fas fa-check-circle" :class="torrent.status === 'Stopped' ? 'text-gray-500' : 'text-green-500'" title="Imported"></i>
-            </div>
-          </div>
-          
-          <div class="h-4 w-full bg-gray-600 rounded-full overflow-hidden mb-3" :style="{backgroundColor: torrent.status === 'Seeding' ? '#4ade80' : '#e2e8f0'}">
-            <div class="h-full rounded-full" 
-                 :style="{
-                   width: torrent.status === 'Stopped' ? torrent.percent_done + '%' : (torrent.upload_ratio > 0 ? torrent.upload_ratio * 100 + '%' : torrent.percent_done + '%'),
-                   backgroundColor: torrent.status === 'Stopped' ? '#a0aec0' : (torrent.upload_ratio > 0 ? '#065f46' : '#4ade80')
-                 }"></div>
-          </div>
-          
-          <div class="flex items-center justify-between">
-            <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-400 flex-1 mr-2">
-              <div>Size: <span x-text="(torrent.total_size / 1024 / 1024).toFixed(2) + ' MB'"></span></div>
-              <div x-show="torrent.added_by != ''">Added: <span x-text="torrent.added_by.charAt(0).toUpperCase() + torrent.added_by.slice(1)"></span></div>
-              <div x-show="torrent.upload_ratio > 0">Ratio: <span x-text="torrent.upload_ratio.toFixed(2)"></span></div>
-              <div x-show="torrent.percent_done > 0  && torrent.percent_done < 100">Progress: <span x-text="(torrent.percent_done).toFixed(1) + '%'"></span></div>
-              <div x-show="torrent.status === 'Downloading' && torrent.eta">ETA: <span x-text="formatEta(torrent.eta)"></span></div>
-            </div>
-            
-            <div class="flex items-center gap-2 flex-shrink-0">
-              <button x-show="torrentClientType !== 'decypharr'" 
-                      @click="toggleTorrent(torrent.id, torrent.status)" 
-                      :disabled="deletingTorrent === torrent.id"
-                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8"
-                      title="Pause/Resume">
-                <i :class="torrent.status === 'Stopped' ? 'fas fa-play' : 'fas fa-pause'"></i>
-              </button>
-              
-              <button x-show="torrentClientType === 'qbittorrent'" 
-                      @click="openCategoryModal(torrent.id)" 
-                      :disabled="deletingTorrent === torrent.id"
-                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8"
-                      title="Set Category">
-                <i class="fas fa-folder"></i>
-              </button>
-              
-              <button @click="deleteTorrent(torrent.id)" 
-                      :disabled="deletingTorrent === torrent.id"
-                      class="bg-gray-600 hover:bg-gray-500 text-gray-300 rounded flex items-center justify-center disabled:opacity-50 h-8 w-8">
-                <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                <i x-show="deletingTorrent !== torrent.id" class="fas fa-trash-alt"></i>
-              </button>
-            </div>
-          </div>
-        </div>
-      </template>
-      
-      <p x-show="deleteTorrentError" class="text-red-500 mt-2" x-text="deleteTorrentError"></p>
-      
-      <template x-if="confirmDelete">
-    <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4" @click.self="showCandidateDialog = false">
-          <div class="bg-gray-700 p-6 rounded-lg w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4">Confirm Delete</h3>
-            <p>Are you sure you want to delete this torrent and its data?</p>
-            <div class="mt-4 flex justify-end gap-2">
-              <button @click="confirmDeleteTorrent" :disabled="deletingTorrent" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded">
-                <span x-show="deletingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4 mr-1"></span>
-                Delete
-              </button>
-              <button @click="cancelDeleteTorrent" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </template>
+    <!-- ============ SEARCH ============ -->
+    <div x-show="activeTab === 'search'">
 
-      <template x-if="showCategoryModal">
-        <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4" @click.self="closeCategoryModal()">
-          <div class="bg-gray-700 p-6 rounded-lg w-full max-w-sm">
-            <h3 class="text-xl font-bold mb-4">Set Category</h3>
-            <div class="mb-4">
-              <label class="block text-sm text-gray-400 mb-1">Category Name</label>
-              <input type="text" 
-                     x-model="newCategory" 
-                     @keyup.enter="setCategory()"
-                     class="w-full p-2 rounded bg-gray-600 text-white" 
-                     placeholder="e.g., audiobooks">
-            </div>
-            <p x-show="categoryError" class="text-red-500 text-sm mb-3" x-text="categoryError"></p>
-            <div class="flex justify-end gap-2">
-              <button @click="setCategory()" 
-                      :disabled="settingCategory" 
-                      class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                <span x-show="settingCategory" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                Set Category
-              </button>
-              <button @click="closeCategoryModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </template>
-    </div> 
-
-    <div x-show="activeTab === 'goodreads'" class="max-w-3xl mx-auto mt-6 px-2">
-        <h2 class="text-2xl font-bold mb-4">Goodreads Integration</h2>
-        
-        <p x-show="goodreadsError" class="text-red-500 mb-4" x-text="goodreadsError"></p>
-        <p x-show="goodreadsSuccess" class="text-green-500 mb-4" x-text="goodreadsSuccess"></p>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Configuration</h3>
-            
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Goodreads User ID</label>
-                    <input type="text" x-model="goodreadsConfig.goodreads_user_id" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="e.g., 54722780">
+        <!-- Loading skeletons -->
+        <div x-show="loadingSearch">
+            <div class="flex items-center justify-between mb-5">
+                <div class="flex items-center gap-3">
+                    <span class="animate-spin border-2 border-brand-400 border-t-transparent rounded-full w-5 h-5"></span>
+                    <div>
+                        <p class="text-sm text-surface-200" x-text="currentFunnyMessage"></p>
+                        <p class="text-xs text-surface-500 mt-0.5">
+                            <span x-text="searchElapsed"></span>s elapsed &middot; AudiobookBay is behind Cloudflare, first search for a title is slow
+                        </p>
+                    </div>
                 </div>
-                
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Shelf Name</label>
-                    <input type="text" x-model="goodreadsConfig.shelf" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="to-read">
-                </div>
-                
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Poll Interval (minutes)</label>
-                    <input type="number" x-model.number="goodreadsConfig.poll_interval" min="1" class="w-full p-2 rounded bg-gray-600 text-white" placeholder="60">
-                </div>
-                
-                <div class="flex items-center gap-2">
-                    <input type="checkbox" x-model="goodreadsConfig.enabled" id="goodreads-enabled" class="w-4 h-4">
-                    <label for="goodreads-enabled" class="text-sm">Enable automatic polling</label>
-                </div>
+                <button @click="cancelSearch()" class="text-sm text-surface-400 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/5">Cancel</button>
             </div>
-            
-            <div class="flex gap-2 mt-4">
-                <button @click="validateGoodreadsConfig()" :disabled="loadingGoodreads" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                    Validate
-                </button>
-                <button @click="saveGoodreadsConfig()" :disabled="loadingGoodreads" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                    Save
-                </button>
-                <button @click="triggerPoll()" :disabled="pollingNow || !goodreadsConfig.goodreads_user_id" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                    <span x-show="pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                    Poll Now
-                </button>
-            </div>
-            
-            <div x-show="validationResult" class="mt-3 p-3 rounded" :class="validationResult?.valid ? 'bg-green-900' : 'bg-red-900'">
-                <p x-text="validationResult?.message"></p>
-                <p x-show="validationResult?.book_count" class="text-sm text-gray-300">Books found: <span x-text="validationResult?.book_count"></span></p>
-            </div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4" x-show="goodreadsConfig.last_poll">
-            <h3 class="text-lg font-semibold mb-2">Last Poll Status</h3>
-            <div class="text-sm text-gray-400 space-y-1">
-                <p>Time: <span class="text-white" x-text="new Date(goodreadsConfig.last_poll).toLocaleString()"></span></p>
-                <p>Status: <span class="text-white" :class="goodreadsConfig.last_poll_status === 'success' ? 'text-green-400' : 'text-red-400'" x-text="goodreadsConfig.last_poll_status"></span></p>
-                <p x-show="goodreadsConfig.last_poll_message">Message: <span class="text-white" x-text="goodreadsConfig.last_poll_message"></span></p>
-            </div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg">
-            <h3 class="text-lg font-semibold mb-3">Processed Books (<span x-text="processedBooks.length"></span>)</h3>
-            
-            <p x-show="processedBooks.length === 0" class="text-gray-400 text-sm">No books processed yet.</p>
-            
-            <div class="space-y-2 max-h-96 overflow-y-auto">
-                <template x-for="book in processedBooks" :key="book.book_id">
-                    <div class="flex items-center justify-between bg-gray-600 p-3 rounded">
-                        <div class="flex-1">
-                            <p class="font-semibold" x-text="book.title"></p>
-                            <p class="text-sm text-gray-400" x-text="book.author"></p>
-                            <p class="text-xs" :class="book.status === 'downloaded' ? 'text-green-400' : 'text-yellow-400'">
-                                <span x-text="book.status === 'downloaded' ? '✓ Downloaded' : '⚠ No results'"></span>
-                                <span x-show="book.torrent_name" class="text-gray-500"> - <span x-text="book.torrent_name"></span></span>
-                            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <template x-for="i in 10" :key="i">
+                    <div class="panel overflow-hidden">
+                        <div class="skeleton aspect-[2/3] w-full"></div>
+                        <div class="p-3 space-y-2">
+                            <div class="skeleton h-3 w-full rounded"></div>
+                            <div class="skeleton h-3 w-2/3 rounded"></div>
                         </div>
-                        <button @click="deleteProcessedBook(book.book_id)" class="bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded text-sm ml-2" title="Remove (allows re-download)">
-                            <i class="fas fa-redo"></i>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Empty state before first search -->
+        <div x-show="!loadingSearch && !results.length && !searchComplete" class="text-center py-20">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-surface-800/60 border border-white/5 flex items-center justify-center text-surface-500 mb-4"
+                 x-html="icon('search', 'w-7 h-7')"></div>
+            <h2 class="text-lg font-semibold text-white mb-1">Find your next listen</h2>
+            <p class="text-sm text-surface-400 max-w-md mx-auto">
+                Search AudiobookBay by title or author. Press <kbd class="border border-white/10 rounded px-1.5 py-0.5 text-xs">/</kbd> anywhere to jump to the search box.
+            </p>
+        </div>
+
+        <!-- Results -->
+        <div x-show="!loadingSearch && results.length">
+
+            <!-- Toolbar -->
+            <div class="flex flex-wrap items-center gap-3 mb-5">
+                <div>
+                    <h2 class="text-lg font-semibold text-white">
+                        <span x-text="filteredResults().length"></span>
+                        <span class="text-surface-400 font-normal text-sm">
+                            of <span x-text="results.length"></span> results
+                        </span>
+                    </h2>
+                </div>
+
+                <div class="hidden sm:block flex-1"></div>
+
+                <!-- Full width on narrow screens: a fixed min-width here can
+                     exceed the viewport once font metrics vary, pushing the
+                     whole grid wider than the page. -->
+                <input type="text" x-model="resultFilter" placeholder="Filter these results..."
+                       class="field w-full sm:!w-auto sm:min-w-[12rem] !py-1.5 text-sm">
+
+                <span x-show="!hasSwarmData() && results.length > 1"
+                      class="text-[11px] text-surface-500 flex items-center gap-1"
+                      title="AudiobookBay does not publish seeder/leecher counts, so Jackett returns the same placeholder for every release. Swarm figures are shown for indexers that report real data.">
+                    <span x-html="icon('warning', 'w-3.5 h-3.5')"></span>
+                    no seed/leech data from this indexer
+                </span>
+
+                <select x-model="sortBy" class="field !w-auto min-w-0 !py-1.5 text-sm">
+                    <option value="seeders" x-show="hasSwarmData()">Most seeders</option>
+                    <option value="sizeDesc">Largest first</option>
+                    <option value="sizeAsc">Smallest first</option>
+                    <option value="newest">Newest first</option>
+                </select>
+
+                <button @click="showFilters = !showFilters"
+                        :class="showFilters || minSeeders > 0 ? 'bg-brand-600 text-white' : 'bg-surface-800/60 text-surface-300 hover:text-white'"
+                        class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm border border-white/10 transition">
+                    <span x-html="icon('filter', 'w-4 h-4')"></span>
+                    Filters
+                </button>
+
+            </div>
+
+            <!-- Filter drawer -->
+            <div x-show="showFilters" x-transition class="panel p-4 mb-5">
+                <label class="block text-xs uppercase tracking-wide text-surface-400 font-medium mb-2">
+                    Minimum seeders: <span class="text-brand-300 font-semibold" x-text="minSeeders"></span>
+                </label>
+                <input type="range" min="0" :max="Math.max(10, maxSeeders())" x-model.number="minSeeders"
+                       class="w-full max-w-md accent-brand-500">
+                <div class="flex gap-2 mt-3">
+                    <button @click="minSeeders = 0; resultFilter = ''" class="text-xs text-surface-400 hover:text-white transition">Reset filters</button>
+                </div>
+            </div>
+
+            <!-- Poster grid -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                <template x-for="result in filteredResults()" :key="result.Guid">
+                    <div class="panel overflow-hidden group flex flex-col hover:border-brand-500/40 hover:shadow-xl hover:shadow-brand-950/40 transition-all duration-200">
+
+                        <!-- Cover: links to the AudiobookBay page (description,
+                             cover, and the comments thread) -->
+                        <div class="relative aspect-[2/3] overflow-hidden bg-surface-800">
+                            <img :src="posterSrc(result)" x-show="posterSrc(result)"
+                                 @error="onPosterError(result)"
+                                 loading="lazy"
+                                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                 alt="">
+                            <div x-show="showPosterFallback(result)"
+                                 :style="posterStyle(result.Title)"
+                                 class="poster-fallback absolute inset-0 flex items-center justify-center">
+                                <span class="text-3xl font-bold text-white/25" x-text="initials(result.Title)"></span>
+                            </div>
+
+                            <!-- Full-cover link to the AudiobookBay page. Kept as
+                                 a sibling of the Add button rather than wrapping
+                                 it, so the button is not nested inside an anchor. -->
+                            <a x-show="detailsUrl(result)"
+                               :href="detailsUrl(result)"
+                               target="_blank" rel="noopener noreferrer"
+                               title="Open on AudiobookBay (details & comments)"
+                               class="absolute inset-0 z-10"></a>
+
+                            <!-- Badges sit above the link but must not swallow
+                                 its clicks. -->
+                            <div x-show="isAlreadyAdded(result)"
+                                 class="absolute top-2 left-2 z-20 pointer-events-none flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 text-white text-[10px] font-semibold shadow-lg">
+                                <span x-html="icon('check', 'w-3 h-3')"></span>
+                                In library
+                            </div>
+
+                            <div class="absolute top-2 right-2 z-20 pointer-events-none flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold backdrop-blur-sm"
+                                 :class="seederClass(result.Seeders)"
+                                 x-show="hasSwarmData() && result.Seeders !== undefined && result.Seeders !== null">
+                                <span x-html="icon('users', 'w-3 h-3')"></span>
+                                <span x-text="result.Seeders"></span>
+                            </div>
+
+                            <!-- Hover overlay: only the button itself is
+                                 clickable, so the rest of the cover still opens
+                                 the details page. -->
+                            <div class="absolute inset-0 z-20 pointer-events-none bg-gradient-to-t from-surface-950 via-surface-950/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-end gap-1.5 p-3">
+                                <span x-show="detailsUrl(result)" class="text-[10px] text-surface-300 flex items-center gap-1">
+                                    <span x-html="icon('link', 'w-3 h-3')"></span> Click cover for details
+                                </span>
+                                <button @click="add(result.MagnetUri || result.Link, result)"
+                                        :disabled="loadingAdd[result.MagnetUri || result.Link] == true"
+                                        class="pointer-events-auto w-full flex items-center justify-center gap-2 bg-brand-600 hover:bg-brand-500 text-white text-sm font-medium px-3 py-2 rounded-lg shadow-lg disabled:opacity-50 transition">
+                                    <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                                    <span x-show="!loadingAdd[result.MagnetUri || result.Link]" x-html="icon('plus', 'w-4 h-4')"></span>
+                                    Add
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Meta -->
+                        <div class="p-3 flex-1 flex flex-col">
+                            <a :href="detailsUrl(result) || undefined"
+                               :target="detailsUrl(result) ? '_blank' : undefined"
+                               rel="noopener noreferrer"
+                               :class="detailsUrl(result) ? 'hover:text-brand-300' : ''"
+                               class="text-sm font-medium text-white leading-snug line-clamp-2 mb-2 transition-colors"
+                               :title="result.Title" x-text="result.Title"></a>
+                            <!-- Seeders / leechers -->
+                            <div x-show="hasSwarmData()" class="flex items-center gap-3 mb-1.5 text-[11px]">
+                                <span class="flex items-center gap-1" :class="seederTextClass(result.Seeders)"
+                                      :title="(result.Seeders ?? 0) + ' seeders'">
+                                    <span x-html="icon('upload', 'w-3 h-3')"></span>
+                                    <span class="font-semibold" x-text="result.Seeders ?? 0"></span>
+                                    <span class="text-surface-500">seed</span>
+                                </span>
+                                <span class="flex items-center gap-1 text-surface-400"
+                                      :title="leechers(result) + ' leechers'">
+                                    <span x-html="icon('download', 'w-3 h-3')"></span>
+                                    <span class="font-semibold" x-text="leechers(result)"></span>
+                                    <span class="text-surface-500">leech</span>
+                                </span>
+                            </div>
+
+                            <div class="mt-auto flex flex-wrap items-center gap-1.5 text-[10px] text-surface-400">
+                                <span class="px-1.5 py-0.5 rounded bg-surface-700/50" x-text="formatSize(result.Size)"></span>
+                                <span x-show="formatAge(result.PublishDate)" class="px-1.5 py-0.5 rounded bg-surface-700/50" x-text="formatAge(result.PublishDate)"></span>
+                            </div>
+                            <p x-show="addError[result.MagnetUri || result.Link]" class="text-red-400 text-[11px] mt-2" x-text="addError[result.MagnetUri || result.Link]"></p>
+                        </div>
+
+                        <!-- Mobile add button (no hover on touch) -->
+                        <button @click="add(result.MagnetUri || result.Link, result)"
+                                :disabled="loadingAdd[result.MagnetUri || result.Link] == true"
+                                class="sm:hidden flex items-center justify-center gap-2 bg-brand-600 text-white text-sm font-medium py-2 disabled:opacity-50">
+                            <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                            Add
                         </button>
                     </div>
                 </template>
             </div>
+
+            <p x-show="filteredResults().length === 0" class="text-center text-surface-400 py-12 text-sm">
+                Every result was filtered out. <button @click="minSeeders = 0; resultFilter = ''" class="text-brand-400 hover:underline">Reset filters</button>
+            </p>
+        </div>
+
+        <!-- No results -->
+        <div x-show="!loadingSearch && searchComplete && results.length === 0 && query" class="text-center py-20">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-surface-800/60 border border-white/5 flex items-center justify-center text-surface-500 mb-4"
+                 x-html="icon('warning', 'w-7 h-7')"></div>
+            <h2 class="text-lg font-semibold text-white mb-1">No results found</h2>
+            <p class="text-sm text-surface-400">Try a different spelling, or search by author instead.</p>
         </div>
     </div>
 
-    <div x-show="activeTab === 'settings'" class="max-w-3xl mx-auto mt-6 px-2">
-        <h2 class="text-2xl font-bold mb-4">Settings</h2>
-        
-        <p x-show="configError" class="text-red-500 mb-4" x-text="configError"></p>
-        <p x-show="configSuccess" class="text-green-500 mb-4" x-text="configSuccess"></p>
+    <!-- ============ STATUS ============ -->
+    <div x-show="activeTab === 'status'">
 
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">App Settings</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('app')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input type="text" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
-                    </div>
-                </template>
+        <!-- Stats strip -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div class="panel p-4">
+                <p class="text-xs text-surface-400 mb-1">Total torrents</p>
+                <p class="text-2xl font-semibold text-white" x-text="torrentStatus.length"></p>
+            </div>
+            <div class="panel p-4">
+                <p class="text-xs text-surface-400 mb-1">Downloading</p>
+                <p class="text-2xl font-semibold text-brand-300" x-text="activeCount()"></p>
+            </div>
+            <div class="panel p-4">
+                <p class="text-xs text-surface-400 mb-1">Seeding</p>
+                <p class="text-2xl font-semibold text-emerald-300" x-text="seedingCount()"></p>
+            </div>
+            <div class="panel p-4">
+                <p class="text-xs text-surface-400 mb-1">Total size</p>
+                <p class="text-2xl font-semibold text-white" x-text="formatSize(totalSize())"></p>
             </div>
         </div>
 
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Jackett Configuration</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('jackett')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
-                    </div>
-                </template>
-            </div>
-            <div class="mt-3">
-                <button @click="testJackettConnection()" :disabled="testingJackett" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                    <span x-show="testingJackett" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                    Test Connection
+        <div x-show="!torrentStatus.length && !loadingTorrentStatus" class="text-center py-20">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-surface-800/60 border border-white/5 flex items-center justify-center text-surface-500 mb-4"
+                 x-html="icon('list', 'w-7 h-7')"></div>
+            <h2 class="text-lg font-semibold text-white mb-1">Nothing downloading</h2>
+            <p class="text-sm text-surface-400">Torrents you add will show up here.</p>
+        </div>
+
+        <template x-for="group in statusGroups()" :key="group.key">
+            <section class="mb-8">
+                <button @click="group.key === 'stopped' ? showCompleted = !showCompleted : null"
+                        class="flex items-center gap-2 mb-3 text-sm font-semibold text-surface-300">
+                    <span x-text="group.label"></span>
+                    <span class="px-2 py-0.5 rounded-full bg-surface-700/60 text-xs text-surface-300" x-text="group.items.length"></span>
+                    <span x-show="group.key === 'stopped'" class="text-xs text-surface-500 font-normal"
+                          x-text="showCompleted ? '(hide)' : '(show)'"></span>
                 </button>
-                <div x-show="jackettTestResult" class="mt-2 p-2 rounded text-sm" :class="jackettTestResult?.success ? 'bg-green-900' : 'bg-red-900'" x-text="jackettTestResult?.message"></div>
-            </div>
-        </div>
 
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Torrent Client</h3>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-sm text-gray-400 mb-1">Client Type</label>
-                    <select x-model="appConfig.torrent_client_type" class="w-full p-2 rounded bg-gray-600 text-white">
-                        <option value="transmission">Transmission</option>
-                        <option value="qbittorrent">qBittorrent</option>
-                        <option value="decypharr">Decypharr</option>
-                    </select>
+                <div class="space-y-3" x-show="group.key !== 'stopped' || showCompleted">
+                    <template x-for="torrent in group.items" :key="torrent.id">
+                        <div class="panel p-4">
+
+                            <div class="flex items-start justify-between gap-3 mb-3">
+                                <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                                    <span class="shrink-0 mt-0.5"
+                                          :class="torrent.status === 'Seeding' ? 'text-emerald-400' : (torrent.status || '').startsWith('Downloading') ? 'text-brand-400' : 'text-surface-500'"
+                                          x-html="icon(statusIcon(torrent.status), 'w-4 h-4')"></span>
+                                    <div class="min-w-0">
+                                        <h3 class="font-medium text-sm text-white leading-snug break-words" x-text="torrent.name"></h3>
+                                        <div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                            <span class="px-2 py-0.5 rounded-full text-[10px] font-medium ring-1"
+                                                  :class="statusBadge(torrent.status)" x-text="torrent.status"></span>
+                                            <span x-show="torrent.added_by" class="px-2 py-0.5 rounded-full text-[10px] bg-surface-700/50 text-surface-300"
+                                                  x-text="'by ' + (torrent.added_by || '')"></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Beets import indicator -->
+                                <div class="flex items-center gap-2 shrink-0" x-show="torrent.use_beets_import && torrent.percent_done >= 100">
+                                    <button x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.importError"
+                                            @click="showCandidates(torrent)" title="Import error - pick a candidate"
+                                            class="text-red-400 hover:text-red-300 transition" x-html="icon('error', 'w-4 h-4')"></button>
+                                    <span x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && !torrent.imported && !torrent.importError"
+                                          title="Not imported" class="text-amber-400" x-html="icon('question', 'w-4 h-4')"></span>
+                                    <span x-show="(torrent.status === 'Seeding' || torrent.status === 'Stopped') && torrent.imported && !torrent.importError"
+                                          title="Imported"
+                                          :class="torrent.status === 'Stopped' ? 'text-surface-500' : 'text-emerald-400'"
+                                          x-html="icon('checkCircle', 'w-4 h-4')"></span>
+                                </div>
+                            </div>
+
+                            <!-- Download progress -->
+                            <div class="mb-2">
+                                <div class="flex items-center justify-between text-[11px] text-surface-400 mb-1">
+                                    <span>Progress</span>
+                                    <span x-text="(torrent.percent_done || 0).toFixed(1) + '%'"></span>
+                                </div>
+                                <div class="h-2 w-full bg-surface-700/60 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-500"
+                                         :class="torrent.percent_done >= 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-brand-500 to-brand-400'"
+                                         :style="{ width: (torrent.percent_done || 0) + '%' }"></div>
+                                </div>
+                            </div>
+
+                            <!-- Seed ratio, kept separate from download progress -->
+                            <div class="mb-3" x-show="torrent.upload_ratio > 0">
+                                <div class="flex items-center justify-between text-[11px] text-surface-400 mb-1">
+                                    <span>Seed ratio</span>
+                                    <span x-text="(torrent.upload_ratio || 0).toFixed(2)"></span>
+                                </div>
+                                <div class="h-1 w-full bg-surface-700/60 rounded-full overflow-hidden">
+                                    <div class="h-full rounded-full bg-emerald-500/70 transition-all duration-500"
+                                         :style="{ width: ratioPercent(torrent.upload_ratio) + '%' }"></div>
+                                </div>
+                            </div>
+
+                            <div class="flex items-end justify-between gap-3">
+                                <div class="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[11px] text-surface-400 flex-1">
+                                    <div>Size <span class="text-surface-200" x-text="formatSize(torrent.total_size)"></span></div>
+                                    <div x-show="(torrent.status || '').startsWith('Downloading') && torrent.eta > 0">
+                                        ETA <span class="text-surface-200" x-text="formatEta(torrent.eta)"></span>
+                                    </div>
+                                </div>
+
+                                <div class="flex items-center gap-1.5 shrink-0">
+                                    <button x-show="torrentClientType !== 'decypharr'"
+                                            @click="toggleTorrent(torrent.id, torrent.status)"
+                                            :disabled="deletingTorrent === torrent.id"
+                                            :title="torrent.status === 'Stopped' ? 'Resume' : 'Pause'"
+                                            class="w-8 h-8 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-surface-300 hover:text-white flex items-center justify-center disabled:opacity-50 transition"
+                                            x-html="icon(torrent.status === 'Stopped' ? 'play' : 'pause', 'w-4 h-4')"></button>
+
+                                    <button x-show="torrentClientType === 'qbittorrent'"
+                                            @click="openCategoryModal(torrent.id)"
+                                            :disabled="deletingTorrent === torrent.id"
+                                            title="Set category"
+                                            class="w-8 h-8 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-surface-300 hover:text-white flex items-center justify-center disabled:opacity-50 transition"
+                                            x-html="icon('folder', 'w-4 h-4')"></button>
+
+                                    <button @click="deleteTorrent(torrent.id)"
+                                            :disabled="deletingTorrent === torrent.id"
+                                            title="Delete torrent and data"
+                                            class="w-8 h-8 rounded-lg bg-surface-700/60 hover:bg-red-600 text-surface-300 hover:text-white flex items-center justify-center disabled:opacity-50 transition">
+                                        <span x-show="deletingTorrent === torrent.id" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                                        <span x-show="deletingTorrent !== torrent.id" x-html="icon('trash', 'w-4 h-4')"></span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
-                <template x-for="[key, schema] in getConfigsByGroup('torrent').filter(([k]) => k !== 'torrent_client_type')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
-                    </div>
-                </template>
+            </section>
+        </template>
+    </div>
+
+    <!-- ============ GOODREADS ============ -->
+    <div x-show="activeTab === 'goodreads'" class="max-w-3xl">
+        <h2 class="text-xl font-semibold text-white mb-5">Goodreads integration</h2>
+
+        <div class="panel p-5 mb-4">
+            <h3 class="text-sm font-semibold text-white mb-4">Configuration</h3>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs text-surface-400 mb-1.5">Goodreads user ID</label>
+                    <input type="text" x-model="goodreadsConfig.goodreads_user_id" class="field" placeholder="e.g. 54722780">
+                </div>
+                <div>
+                    <label class="block text-xs text-surface-400 mb-1.5">Shelf name</label>
+                    <input type="text" x-model="goodreadsConfig.shelf" class="field" placeholder="to-read">
+                </div>
+                <div>
+                    <label class="block text-xs text-surface-400 mb-1.5">Poll interval (minutes)</label>
+                    <input type="number" x-model.number="goodreadsConfig.poll_interval" min="1" class="field" placeholder="60">
+                </div>
+                <label class="flex items-center gap-2.5 cursor-pointer">
+                    <input type="checkbox" x-model="goodreadsConfig.enabled" class="w-4 h-4 rounded accent-brand-500">
+                    <span class="text-sm text-surface-200">Enable automatic polling</span>
+                </label>
+            </div>
+
+            <div class="flex flex-wrap gap-2 mt-5">
+                <button @click="validateGoodreadsConfig()" :disabled="loadingGoodreads"
+                        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-surface-700/60 hover:bg-surface-600 border border-white/10 text-white disabled:opacity-50 transition">
+                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Validate
+                </button>
+                <button @click="saveGoodreadsConfig()" :disabled="loadingGoodreads"
+                        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 transition">
+                    <span x-show="loadingGoodreads && !pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Save
+                </button>
+                <button @click="triggerPoll()" :disabled="pollingNow || !goodreadsConfig.goodreads_user_id"
+                        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50 transition">
+                    <span x-show="pollingNow" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                    Poll now
+                </button>
+            </div>
+
+            <div x-show="validationResult" x-transition class="mt-4 p-3 rounded-lg text-sm border"
+                 :class="validationResult?.valid ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-200' : 'bg-red-950/60 border-red-500/30 text-red-200'">
+                <p x-text="validationResult?.message"></p>
+                <p x-show="validationResult?.book_count" class="text-xs opacity-80 mt-1">
+                    Books found: <span x-text="validationResult?.book_count"></span>
+                </p>
             </div>
         </div>
 
-        <div x-show="appConfig.torrent_client_type === 'transmission'" class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Transmission Settings</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('transmission')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
+        <div class="panel p-5 mb-4" x-show="goodreadsConfig.last_poll">
+            <h3 class="text-sm font-semibold text-white mb-3">Last poll</h3>
+            <dl class="text-xs space-y-1.5">
+                <div class="flex gap-2">
+                    <dt class="text-surface-400 w-20">Time</dt>
+                    <dd class="text-surface-200" x-text="goodreadsConfig.last_poll ? new Date(goodreadsConfig.last_poll).toLocaleString() : ''"></dd>
+                </div>
+                <div class="flex gap-2">
+                    <dt class="text-surface-400 w-20">Status</dt>
+                    <dd :class="goodreadsConfig.last_poll_status === 'success' ? 'text-emerald-400' : 'text-red-400'" x-text="goodreadsConfig.last_poll_status"></dd>
+                </div>
+                <div class="flex gap-2" x-show="goodreadsConfig.last_poll_message">
+                    <dt class="text-surface-400 w-20">Message</dt>
+                    <dd class="text-surface-200" x-text="goodreadsConfig.last_poll_message"></dd>
+                </div>
+            </dl>
+        </div>
+
+        <div class="panel p-5">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-semibold text-white">
+                    Processed books <span class="text-surface-400 font-normal">(<span x-text="processedBooks.length"></span>)</span>
+                </h3>
+                <button x-show="processedBooks.length" @click="clearAllBooks()"
+                        class="text-xs text-surface-400 hover:text-red-400 transition">Clear all</button>
+            </div>
+
+            <p x-show="processedBooks.length === 0" class="text-surface-400 text-sm">No books processed yet.</p>
+
+            <div class="space-y-2 max-h-96 overflow-y-auto pr-1">
+                <template x-for="book in processedBooks" :key="book.book_id">
+                    <div class="flex items-center justify-between gap-3 bg-surface-800/50 border border-white/5 p-3 rounded-lg">
+                        <div class="min-w-0 flex-1">
+                            <p class="text-sm font-medium text-white truncate" x-text="book.title"></p>
+                            <p class="text-xs text-surface-400 truncate" x-text="book.author"></p>
+                            <p class="text-[11px] mt-0.5" :class="book.status === 'downloaded' ? 'text-emerald-400' : 'text-amber-400'">
+                                <span x-text="book.status === 'downloaded' ? 'Downloaded' : 'No results'"></span>
+                                <span x-show="book.torrent_name" class="text-surface-500"> &middot; <span x-text="book.torrent_name"></span></span>
+                            </p>
+                        </div>
+                        <button @click="deleteProcessedBook(book.book_id)"
+                                title="Remove (allows re-download)"
+                                class="w-8 h-8 shrink-0 rounded-lg bg-surface-700/60 hover:bg-surface-600 text-surface-300 hover:text-white flex items-center justify-center transition"
+                                x-html="icon('refresh', 'w-4 h-4')"></button>
                     </div>
                 </template>
             </div>
-        </div>
-
-        <div x-show="appConfig.torrent_client_type === 'qbittorrent'" class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">qBittorrent Settings</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('qbittorrent')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div x-show="appConfig.torrent_client_type === 'decypharr'" class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Decypharr Settings</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('decypharr')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white" :placeholder="schema.has_value ? '(configured)' : ''">
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <button @click="testTorrentConnection()" :disabled="testingTorrent" class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                <span x-show="testingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                Test Torrent Connection
-            </button>
-            <div x-show="torrentTestResult" class="mt-2 p-2 rounded text-sm" :class="torrentTestResult?.success ? 'bg-green-900' : 'bg-red-900'" x-text="torrentTestResult?.message"></div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Cleanup Settings</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('cleanup')" :key="key">
-                    <div>
-                        <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                        <input type="number" x-model.number="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Beets Integration</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('beets')" :key="key">
-                    <div>
-                        <template x-if="schema.type === 'boolean' || typeof appConfig[key] === 'boolean'">
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" x-model="appConfig[key]" :id="key" class="w-4 h-4">
-                                <label :for="key" class="text-sm" x-text="schema.label"></label>
-                            </div>
-                        </template>
-                        <template x-if="schema.type !== 'boolean' && typeof appConfig[key] !== 'boolean'">
-                            <div>
-                                <label class="block text-sm text-gray-400 mb-1" x-text="schema.label"></label>
-                                <input type="text" x-model="appConfig[key]" class="w-full p-2 rounded bg-gray-600 text-white">
-                            </div>
-                        </template>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div class="bg-gray-700 p-4 rounded-lg mb-4">
-            <h3 class="text-lg font-semibold mb-3">Goodreads Integration</h3>
-            <div class="space-y-3">
-                <template x-for="[key, schema] in getConfigsByGroup('goodreads')" :key="key">
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" x-model="appConfig[key]" :id="key" class="w-4 h-4">
-                        <label :for="key" class="text-sm" x-text="schema.label"></label>
-                    </div>
-                </template>
-            </div>
-        </div>
-
-        <div class="flex gap-2 mb-6">
-            <button @click="saveAppConfig()" :disabled="loadingConfig" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded flex items-center gap-2 disabled:opacity-50">
-                <span x-show="loadingConfig" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
-                Save Configuration
-            </button>
-        </div>
-
-        <div class="bg-yellow-900 p-4 rounded-lg mb-4 text-sm">
-            <p><strong>Note:</strong> Some configuration changes may require a restart to take effect. Environment variables take precedence if DB config is not set.</p>
         </div>
     </div>
 
-<template x-if="showCandidateDialog">
-    <div class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center z-50 p-4">
-        <div class="bg-gray-700 p-6 rounded-lg w-full max-w-md max-h-[80vh] overflow-y-auto">
-            <h3 class="text-xl font-bold mb-4">Select a Candidate</h3>
-            <div class="space-y-4">
-                <template x-for="candidate in candidates" :key="candidate.id">
-                    <div class="flex items-center gap-4 p-4 bg-gray-600 rounded cursor-pointer hover:bg-gray-500" @click="selectCandidate(candidate)">
-                        <img :src="candidate.cover" alt="Cover" class="w-16 h-16 object-cover rounded" x-show="candidate.cover">
-                        <div>
-                            <p class="font-bold" x-text="candidate.album"></p>
-                            <p class="text-sm text-gray-400" x-text="candidate.match"></p>
-                            <p class="text-sm text-gray-400" x-text="candidate.artist"></p>
-                            <p class="text-sm text-gray-400" x-text="candidate.length"></p>
+    <!-- ============ SETTINGS ============ -->
+    <div x-show="activeTab === 'settings'">
+        <h2 class="text-xl font-semibold text-white mb-5">Settings</h2>
+
+        <div class="flex flex-col lg:flex-row gap-6">
+
+            <!-- Section nav -->
+            <aside class="lg:w-52 shrink-0">
+                <nav class="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible pb-2 lg:pb-0">
+                    <template x-for="section in settingsSections()" :key="section.id">
+                        <button @click="settingsSection = section.id"
+                                :class="settingsSection === section.id ? 'bg-brand-600/20 text-brand-200 border-brand-500/30' : 'text-surface-400 hover:text-white hover:bg-white/5 border-transparent'"
+                                class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium border transition whitespace-nowrap">
+                            <span x-html="icon(section.icon, 'w-4 h-4')"></span>
+                            <span x-text="section.label"></span>
+                            <!-- connection status dot -->
+                            <span x-show="section.id === 'jackett' && jackettTestResult"
+                                  class="w-1.5 h-1.5 rounded-full ml-auto"
+                                  :class="jackettTestResult?.success ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                            <span x-show="section.id === 'torrent' && torrentTestResult"
+                                  class="w-1.5 h-1.5 rounded-full ml-auto"
+                                  :class="torrentTestResult?.success ? 'bg-emerald-400' : 'bg-red-400'"></span>
+                        </button>
+                    </template>
+                </nav>
+            </aside>
+
+            <div class="flex-1 min-w-0 max-w-2xl space-y-4">
+
+                <!-- General -->
+                <div x-show="settingsSection === 'app'" class="panel p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">General</h3>
+                    <div class="space-y-4">
+                        <template x-for="[key, schema] in getConfigsByGroup('app')" :key="key">
+                            <div>
+                                <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                <input type="text" x-model="appConfig[key]" class="field">
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Jackett -->
+                <div x-show="settingsSection === 'jackett'" class="panel p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Jackett</h3>
+                    <div class="space-y-4">
+                        <template x-for="[key, schema] in getConfigsByGroup('jackett')" :key="key">
+                            <div>
+                                <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="field"
+                                       :placeholder="schema.has_value ? '(configured)' : ''">
+                            </div>
+                        </template>
+                    </div>
+                    <div class="mt-5">
+                        <button @click="testJackettConnection()" :disabled="testingJackett"
+                                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-surface-700/60 hover:bg-surface-600 border border-white/10 text-white disabled:opacity-50 transition">
+                            <span x-show="testingJackett" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                            Test connection
+                        </button>
+                        <div x-show="jackettTestResult" x-transition class="mt-3 p-3 rounded-lg text-sm border"
+                             :class="jackettTestResult?.success ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-200' : 'bg-red-950/60 border-red-500/30 text-red-200'"
+                             x-text="jackettTestResult?.message"></div>
+                    </div>
+                </div>
+
+                <!-- Torrent client -->
+                <div x-show="settingsSection === 'torrent'" class="space-y-4">
+                    <div class="panel p-5">
+                        <h3 class="text-sm font-semibold text-white mb-4">Torrent client</h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-xs text-surface-400 mb-1.5">Client type</label>
+                                <select x-model="appConfig.torrent_client_type" class="field">
+                                    <option value="transmission">Transmission</option>
+                                    <option value="qbittorrent">qBittorrent</option>
+                                    <option value="decypharr">Decypharr</option>
+                                </select>
+                            </div>
+                            <template x-for="[key, schema] in getConfigsByGroup('torrent').filter(([k]) => k !== 'torrent_client_type')" :key="key">
+                                <div>
+                                    <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                    <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="field">
+                                </div>
+                            </template>
                         </div>
                     </div>
-                </template>
+
+                    <template x-for="client in ['transmission', 'qbittorrent', 'decypharr']" :key="client">
+                        <div x-show="appConfig.torrent_client_type === client" class="panel p-5">
+                            <h3 class="text-sm font-semibold text-white mb-4 capitalize" x-text="client + ' settings'"></h3>
+                            <div class="space-y-4">
+                                <template x-for="[key, schema] in getConfigsByGroup(client)" :key="key">
+                                    <div>
+                                        <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                        <input :type="schema.sensitive ? 'password' : 'text'" x-model="appConfig[key]" class="field"
+                                               :placeholder="schema.has_value ? '(configured)' : ''">
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="panel p-5">
+                        <button @click="testTorrentConnection()" :disabled="testingTorrent"
+                                class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-surface-700/60 hover:bg-surface-600 border border-white/10 text-white disabled:opacity-50 transition">
+                            <span x-show="testingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                            Test torrent connection
+                        </button>
+                        <div x-show="torrentTestResult" x-transition class="mt-3 p-3 rounded-lg text-sm border"
+                             :class="torrentTestResult?.success ? 'bg-emerald-950/60 border-emerald-500/30 text-emerald-200' : 'bg-red-950/60 border-red-500/30 text-red-200'"
+                             x-text="torrentTestResult?.message"></div>
+                    </div>
+                </div>
+
+                <!-- Cleanup -->
+                <div x-show="settingsSection === 'cleanup'" class="panel p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Cleanup</h3>
+                    <div class="space-y-4">
+                        <template x-for="[key, schema] in getConfigsByGroup('cleanup')" :key="key">
+                            <div>
+                                <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                <input type="number" x-model.number="appConfig[key]" class="field">
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Beets -->
+                <div x-show="settingsSection === 'beets'" class="panel p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Beets integration</h3>
+                    <div class="space-y-4">
+                        <template x-for="[key, schema] in getConfigsByGroup('beets')" :key="key">
+                            <div>
+                                <template x-if="isBooleanConfig(key, schema)">
+                                    <label class="flex items-center gap-2.5 cursor-pointer">
+                                        <input type="checkbox" x-model="appConfig[key]" class="w-4 h-4 rounded accent-brand-500">
+                                        <span class="text-sm text-surface-200" x-text="schema.label"></span>
+                                    </label>
+                                </template>
+                                <template x-if="!isBooleanConfig(key, schema)">
+                                    <div>
+                                        <label class="block text-xs text-surface-400 mb-1.5" x-text="schema.label"></label>
+                                        <input type="text" x-model="appConfig[key]" class="field">
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Goodreads -->
+                <div x-show="settingsSection === 'goodreads'" class="panel p-5">
+                    <h3 class="text-sm font-semibold text-white mb-4">Goodreads integration</h3>
+                    <div class="space-y-3">
+                        <template x-for="[key, schema] in getConfigsByGroup('goodreads')" :key="key">
+                            <label class="flex items-center gap-2.5 cursor-pointer">
+                                <input type="checkbox" x-model="appConfig[key]" class="w-4 h-4 rounded accent-brand-500">
+                                <span class="text-sm text-surface-200" x-text="schema.label"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="panel p-4 border-amber-500/20 bg-amber-950/20">
+                    <p class="text-xs text-amber-200/90">
+                        Some changes require a restart to take effect. Environment variables take precedence when a value is not set here.
+                    </p>
+                </div>
             </div>
-            <button @click="showCandidateDialog = false" class="mt-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">Close</button>
+        </div>
+
+        <!-- Unsaved changes bar -->
+        <div x-show="hasUnsavedChanges()" x-transition
+             class="fixed bottom-16 sm:bottom-4 inset-x-4 sm:inset-x-auto sm:right-6 z-40 panel !bg-surface-900/95 shadow-2xl p-3 flex items-center gap-3">
+            <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+            <span class="text-sm text-surface-200 flex-1">You have unsaved changes</span>
+            <button @click="discardConfigChanges()" class="text-sm text-surface-400 hover:text-white px-3 py-1.5 transition">Discard</button>
+            <button @click="saveAppConfig()" :disabled="loadingConfig"
+                    class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 transition">
+                <span x-show="loadingConfig" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                Save
+            </button>
         </div>
     </div>
-</template>
+
+    </main>
+
+    <!-- ============ MODALS ============ -->
+
+    <!-- Delete confirmation -->
+    <template x-if="confirmDelete">
+        <div class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4" @click.self="cancelDeleteTorrent()">
+            <div class="panel !bg-surface-900/95 p-6 w-full max-w-sm shadow-2xl animate-slide-up">
+                <h3 class="text-lg font-semibold text-white mb-2">Delete torrent?</h3>
+                <p class="text-sm text-surface-400 mb-5">This removes the torrent and its downloaded data. This cannot be undone.</p>
+                <p x-show="deleteTorrentError" class="text-red-400 text-sm mb-3" x-text="deleteTorrentError"></p>
+                <div class="flex justify-end gap-2">
+                    <button @click="cancelDeleteTorrent()" class="px-4 py-2 rounded-lg text-sm text-surface-300 hover:text-white hover:bg-white/5 transition">Cancel</button>
+                    <button @click="confirmDeleteTorrent()" :disabled="deletingTorrent"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-red-600 hover:bg-red-500 text-white disabled:opacity-50 transition">
+                        <span x-show="deletingTorrent" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Category -->
+    <template x-if="showCategoryModal">
+        <div class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4" @click.self="closeCategoryModal()">
+            <div class="panel !bg-surface-900/95 p-6 w-full max-w-sm shadow-2xl animate-slide-up">
+                <h3 class="text-lg font-semibold text-white mb-4">Set category</h3>
+                <label class="block text-xs text-surface-400 mb-1.5">Category name</label>
+                <input type="text" x-model="newCategory" @keyup.enter="setCategory()" x-init="$nextTick(() => $el.focus())"
+                       class="field" placeholder="e.g. audiobooks">
+                <p x-show="categoryError" class="text-red-400 text-sm mt-2" x-text="categoryError"></p>
+                <div class="flex justify-end gap-2 mt-5">
+                    <button @click="closeCategoryModal()" class="px-4 py-2 rounded-lg text-sm text-surface-300 hover:text-white hover:bg-white/5 transition">Cancel</button>
+                    <button @click="setCategory()" :disabled="settingCategory"
+                            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-brand-600 hover:bg-brand-500 text-white disabled:opacity-50 transition">
+                        <span x-show="settingCategory" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
+                        Set category
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Beets candidates -->
+    <template x-if="showCandidateDialog">
+        <div class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4" @click.self="showCandidateDialog = false">
+            <div class="panel !bg-surface-900/95 p-6 w-full max-w-md max-h-[80vh] overflow-y-auto shadow-2xl animate-slide-up">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white">Select a candidate</h3>
+                    <button @click="showCandidateDialog = false" class="text-surface-400 hover:text-white transition" x-html="icon('close', 'w-5 h-5')"></button>
+                </div>
+                <div class="space-y-2">
+                    <template x-for="candidate in candidates" :key="candidate.id">
+                        <button @click="selectCandidate(candidate)"
+                                class="w-full flex items-center gap-3 p-3 bg-surface-800/60 border border-white/5 rounded-lg hover:border-brand-500/40 hover:bg-surface-800 transition text-left">
+                            <img :src="candidate.cover" alt="" class="w-14 h-14 object-cover rounded shrink-0" x-show="candidate.cover">
+                            <div class="min-w-0">
+                                <p class="text-sm font-medium text-white truncate" x-text="candidate.album"></p>
+                                <p class="text-xs text-surface-400 truncate" x-show="candidate.artist" x-text="candidate.artist"></p>
+                                <p class="text-xs text-surface-500" x-show="candidate.match" x-text="'Match: ' + candidate.match"></p>
+                                <p class="text-xs text-surface-500" x-show="candidate.length" x-text="candidate.length"></p>
+                            </div>
+                        </button>
+                    </template>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Keyboard shortcuts -->
+    <template x-if="showShortcuts">
+        <div class="fixed inset-0 bg-surface-950/80 backdrop-blur-sm flex justify-center items-center z-50 p-4" @click.self="showShortcuts = false">
+            <div class="panel !bg-surface-900/95 p-6 w-full max-w-sm shadow-2xl animate-slide-up">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white">Keyboard shortcuts</h3>
+                    <button @click="showShortcuts = false" class="text-surface-400 hover:text-white transition" x-html="icon('close', 'w-5 h-5')"></button>
+                </div>
+                <dl class="space-y-2.5 text-sm">
+                    <template x-for="s in [
+                        ['/', 'Focus search'],
+                        ['g then s', 'Go to Search'],
+                        ['g then t', 'Go to Status'],
+                        ['g then g', 'Go to Goodreads'],
+                        ['g then c', 'Go to Settings'],
+                        ['Esc', 'Close dialog / blur input'],
+                        ['?', 'Show this help'],
+                    ]" :key="s[0]">
+                        <div class="flex items-center justify-between gap-4">
+                            <dt class="text-surface-300" x-text="s[1]"></dt>
+                            <dd><kbd class="border border-white/10 bg-surface-800 rounded px-2 py-0.5 text-xs text-surface-200" x-text="s[0]"></kbd></dd>
+                        </div>
+                    </template>
+                </dl>
+            </div>
+        </div>
+    </template>
+
+    <!-- ============ TOASTS ============ -->
+    <div class="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-[60] space-y-2 w-[calc(100%-2rem)] sm:w-80 pointer-events-none">
+        <template x-for="t in toasts" :key="t.id">
+            <div x-transition
+                 :class="toastClasses(t.type)"
+                 class="pointer-events-auto flex items-start gap-2.5 p-3 rounded-lg border backdrop-blur-md shadow-2xl animate-slide-up">
+                <span class="shrink-0 mt-0.5" x-html="icon(toastIcon(t.type), 'w-4 h-4')"></span>
+                <p class="text-sm flex-1 break-words" x-text="t.message"></p>
+                <button @click="dismissToast(t.id)" class="shrink-0 opacity-60 hover:opacity-100 transition" x-html="icon('close', 'w-3.5 h-3.5')"></button>
+            </div>
+        </template>
+    </div>
+
 </body>
 </html>
