@@ -98,6 +98,10 @@ CONFIG_SCHEMA = {
     "beets_input_path": {"env": "BEETS_INPUT_PATH", "default": "/beetsinput", "type": str, "label": "Beets Input Path", "group": "beets", "sensitive": False},
     
     "goodreads_enabled": {"env": "GOODREADS_ENABLED", "default": False, "type": bool, "label": "Enable Goodreads", "group": "goodreads", "sensitive": False},
+
+    "ebook_enabled": {"env": "EBOOK_ENABLED", "default": False, "type": bool, "label": "Auto-download companion ebook", "group": "ebook", "sensitive": False},
+    "ebook_jackett_indexer": {"env": "EBOOK_JACKETT_INDEXER", "default": "ebookbay", "type": str, "label": "Ebook Jackett indexer slug", "group": "ebook", "sensitive": False},
+    "ebook_label": {"env": "EBOOK_LABEL", "default": "ebook", "type": str, "label": "Ebook torrent label", "group": "ebook", "sensitive": False},
     
     "title": {"env": "TITLE", "default": "Audiobook Search", "type": str, "label": "App Title", "group": "app", "sensitive": False},
 }
