@@ -39,3 +39,6 @@ TITLE = get_effective_config("title")
 AUTH_MODE = os.getenv("AUTH_MODE", "none")
 
 GOODREADS_ENABLED = get_effective_config("goodreads_enabled")
+
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://192.168.1.199:11434")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3:14b")
