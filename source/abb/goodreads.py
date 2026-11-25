@@ -1,5 +1,7 @@
 import feedparser
 import re
+import json
+import requests
 from typing import List, Dict, Any, Optional, Tuple
 from .audiobookbay import search_audiobook
 from .torrent_service import add_torrent
@@ -10,6 +12,7 @@ from .goodreads_db import (
     get_enabled_configs
 )
 from .utils import custom_logger
+from .constants import OLLAMA_URL, OLLAMA_MODEL
 
 logger = custom_logger(__name__)
 
@@ -130,34 +133,95 @@ def build_search_queries(title: str, author: str) -> List[str]:
     return unique
 
 
-def download_best_match(title: str, user: User, author: str = "") -> Optional[Dict[str, Any]]:
-    queries = build_search_queries(title, author)
-    logger.info(f"Trying {len(queries)} search queries for '{title}' by '{author}': {queries}")
+def get_llm_search_queries(title: str, author: str) -> List[str]:
+    """
+    Ask the local LLM for alternative AudiobookBay search terms when
+    standard queries have already failed.
+    Returns a list of new query strings to try (may be empty on failure).
+    """
+    prompt = (
+        f'I am searching for the audiobook "{title}" by "{author}" on AudiobookBay '
+        f'but all my search attempts have failed. '
+        f'Suggest up to 5 alternative short search queries I could try — '
+        f'for example: a shorter title, an alternate title, the author name alone, '
+        f'series name, or common alternate spellings. '
+        f'Reply with ONLY a JSON array of strings, no explanation. Example: ["query1", "query2"]'
+    )
+    try:
+        response = requests.post(
+            f"{OLLAMA_URL}/api/chat",
+            json={
+                "model": OLLAMA_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "stream": False,
+                "options": {"temperature": 0.2},
+            },
+            timeout=30,
+        )
+        if response.status_code != 200:
+            logger.warning(f"LLM returned HTTP {response.status_code} for '{title}'")
+            return []
+        content = response.json().get("message", {}).get("content", "")
+        # Extract JSON array from response (LLM may wrap it in markdown)
+        match = re.search(r'\[.*?\]', content, re.DOTALL)
+        if not match:
+            logger.warning(f"LLM response had no JSON array for '{title}': {content[:200]}")
+            return []
+        queries = json.loads(match.group())
+        if not isinstance(queries, list):
+            return []
+        queries = [str(q).strip() for q in queries if str(q).strip()]
+        logger.info(f"LLM suggested {len(queries)} alternative queries for '{title}': {queries}")
+        return queries
+    except Exception as e:
+        logger.warning(f"LLM query failed for '{title}': {e}")
+        return []
 
+
+def _try_queries(queries: List[str], title: str, user: User) -> Optional[Dict[str, Any]]:
+    """Try a list of search queries in order; return on first successful torrent add."""
     for query in queries:
         results = search_audiobook(query)
-        if results:
-            logger.info(f"Query '{query}' returned {len(results)} results")
-            best_match = results[0]
-            torrent_url = best_match.get("MagnetUri") or best_match.get("Link")
-            if not torrent_url:
-                logger.warning(f"No torrent URL in first result for query '{query}', skipping")
-                continue
-            logger.info(f"Downloading best match for '{title}' via query '{query}': {best_match.get('Title')}")
-            try:
-                success = add_torrent(torrent_url, user)
-                if success:
-                    return {
-                        "title": best_match.get("Title"),
-                        "size": best_match.get("Size"),
-                        "url": torrent_url
-                    }
-            except Exception as e:
-                logger.error(f"Failed to add torrent for '{title}' (query: '{query}'): {e}")
-        else:
+        if not results:
             logger.info(f"Query '{query}' returned no results")
+            continue
+        logger.info(f"Query '{query}' returned {len(results)} results")
+        best_match = results[0]
+        torrent_url = best_match.get("MagnetUri") or best_match.get("Link")
+        if not torrent_url:
+            logger.warning(f"No torrent URL in first result for query '{query}', skipping")
+            continue
+        logger.info(f"Downloading best match for '{title}' via query '{query}': {best_match.get('Title')}")
+        try:
+            success = add_torrent(torrent_url, user)
+            if success:
+                return {
+                    "title": best_match.get("Title"),
+                    "size": best_match.get("Size"),
+                    "url": torrent_url
+                }
+        except Exception as e:
+            logger.error(f"Failed to add torrent for '{title}' (query: '{query}'): {e}")
+    return None
 
-    logger.info(f"All {len(queries)} queries exhausted for '{title}' — no match found")
+
+def download_best_match(title: str, user: User, author: str = "") -> Optional[Dict[str, Any]]:
+    queries = build_search_queries(title, author)
+    logger.info(f"Trying {len(queries)} standard queries for '{title}' by '{author}': {queries}")
+
+    result = _try_queries(queries, title, user)
+    if result:
+        return result
+
+    # All standard queries exhausted — ask LLM for alternatives
+    logger.info(f"Standard queries exhausted for '{title}' — asking LLM for alternatives")
+    llm_queries = get_llm_search_queries(title, author)
+    if llm_queries:
+        result = _try_queries(llm_queries, title, user)
+        if result:
+            return result
+
+    logger.info(f"All queries (standard + LLM) exhausted for '{title}' — no match found")
     return None
 
 
