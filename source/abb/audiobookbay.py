@@ -46,7 +46,7 @@ def get_jackett_indexers(api_url: Optional[str] = None, api_key: Optional[str] =
         return []
 
 
-def search_audiobook(query, api_url: Optional[str] = None, api_key: Optional[str] = None, tracker: Optional[str] = None):
+def search_audiobook(query, api_url: Optional[str] = None, api_key: Optional[str] = None, trackers: Optional[List[str]] = None):
     url = api_url or JACKETT_API_URL
     key = api_key or JACKETT_API_KEY
     
@@ -65,9 +65,9 @@ def search_audiobook(query, api_url: Optional[str] = None, api_key: Optional[str
 
         results = response.json()
         all_results = results.get("Results", [])
-        if tracker:
-            all_results = [r for r in all_results if r.get("Tracker", "") == tracker]
-        logger.info(f"Found {len(all_results)} results for {query}" + (f" (tracker: {tracker})" if tracker else ""))
+        if trackers:
+            all_results = [r for r in all_results if r.get("Tracker", "") in trackers]
+        logger.info(f"Found {len(all_results)} results for {query}" + (f" (trackers: {trackers})" if trackers else ""))
         return all_results
     except Exception as e:
         logger.error(f"Search failed: {e}")

@@ -3,7 +3,7 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Request
 from fastapi.staticfiles import StaticFiles
@@ -244,11 +244,11 @@ def get_trackers(user: User = Depends(authenticate)):
 @app.get("/search")
 def search(
     query: str = Query(..., description="Search query"),
-    tracker: Optional[str] = Query(None, description="Filter by tracker name"),
+    tracker: Optional[List[str]] = Query(None, description="Filter by tracker name (repeatable)"),
     user: User = Depends(authenticate)
 ):
     try:
-        results = search_audiobook(query, tracker=tracker)
+        results = search_audiobook(query, trackers=tracker or [])
         return {"results": results}
     except Exception as e:
         logger.error(f"Search failed: {e}")
