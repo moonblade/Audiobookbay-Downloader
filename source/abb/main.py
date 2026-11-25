@@ -3,6 +3,7 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Optional
 
 from fastapi import FastAPI, Query, HTTPException, Depends, status as httpstatus, Request
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +18,7 @@ from .torrent_service import (
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
     pause_stale_torrents, set_category
 )
-from .audiobookbay import search_audiobook
+from .audiobookbay import search_audiobook, get_jackett_indexers
 from .beetsapi import autoimport
 from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
 from .db import select_candidate
@@ -230,13 +231,24 @@ def status():
     now = datetime.utcnow().isoformat() + "Z"
     return {"status": "ok", "timestamp": now}
 
+@app.get("/trackers")
+def get_trackers(user: User = Depends(authenticate)):
+    try:
+        trackers = get_jackett_indexers()
+        return {"trackers": trackers}
+    except Exception as e:
+        logger.error(f"Failed to fetch trackers: {e}")
+        raise HTTPException(status_code=500, detail="Failed to fetch trackers")
+
+
 @app.get("/search")
 def search(
     query: str = Query(..., description="Search query"),
+    tracker: Optional[str] = Query(None, description="Filter by tracker name"),
     user: User = Depends(authenticate)
 ):
     try:
-        results = search_audiobook(query)
+        results = search_audiobook(query, tracker=tracker)
         return {"results": results}
     except Exception as e:
         logger.error(f"Search failed: {e}")
