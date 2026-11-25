@@ -76,6 +76,7 @@
     goodreadsEnabled: false,
     goodreadsConfig: { goodreads_user_id: '', shelf: 'to-read', poll_interval: 60, enabled: false, last_poll: null, last_poll_status: null, last_poll_message: null },
     processedBooks: [],
+    retryingBook: null,
     loadingGoodreads: false,
     goodreadsError: '',
     goodreadsSuccess: '',
@@ -460,6 +461,26 @@
             this.fetchProcessedBooks();
         } catch (error) {
             this.goodreadsError = error.message;
+        }
+    },
+
+    async retryBook(bookId) {
+        this.retryingBook = bookId;
+        this.goodreadsError = '';
+        this.goodreadsSuccess = '';
+        try {
+            const response = await fetch(`/goodreads/books/${bookId}/retry`, { method: 'POST' });
+            const result = await response.json();
+            if (result.status === 'downloaded') {
+                this.goodreadsSuccess = `Found: ${result.torrent_name}`;
+            } else {
+                this.goodreadsError = `Still no results for this book`;
+            }
+            this.fetchProcessedBooks();
+        } catch (error) {
+            this.goodreadsError = error.message;
+        } finally {
+            this.retryingBook = null;
         }
     },
 
@@ -888,9 +909,14 @@
                                 <span x-show="book.torrent_name" class="text-gray-500"> - <span x-text="book.torrent_name"></span></span>
                             </p>
                         </div>
-                        <button @click="deleteProcessedBook(book.book_id)" class="bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded text-sm ml-2" title="Remove (allows re-download)">
-                            <i class="fas fa-redo"></i>
-                        </button>
+                        <div class="flex gap-1 ml-2">
+                            <button x-show="book.status === 'no_results'" @click="retryBook(book.book_id)" :disabled="retryingBook === book.book_id" class="bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded text-sm disabled:opacity-50" title="Retry search">
+                                <i :class="retryingBook === book.book_id ? 'fas fa-spinner fa-spin' : 'fas fa-search'"></i>
+                            </button>
+                            <button @click="deleteProcessedBook(book.book_id)" class="bg-gray-500 hover:bg-gray-400 text-white px-2 py-1 rounded text-sm" title="Remove (allows re-download)">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
                     </div>
                 </template>
             </div>
