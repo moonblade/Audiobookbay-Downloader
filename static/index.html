@@ -683,9 +683,10 @@
                     <div class="flex-grow w-3/4">
                         <h2 class="font-bold break-all" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
-                        <p x-show="trackers.length > 1 && result.Tracker" class="text-xs mt-1">
-                            <span :class="selectedTrackers.includes(result.Tracker) ? 'bg-blue-700 text-white' : 'bg-gray-600 text-gray-300'" class="px-2 py-0.5 rounded-full" x-text="result.Tracker"></span>
-                        </p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span x-show="trackers.length > 1 && result.Tracker" :class="selectedTrackers.includes(result.Tracker) ? 'bg-blue-700 text-white' : 'bg-gray-600 text-gray-300'" class="text-xs px-2 py-0.5 rounded-full" x-text="result.Tracker"></span>
+                            <a x-show="result.Details" :href="result.Details" target="_blank" rel="noopener noreferrer" class="text-xs text-blue-400 hover:text-blue-300 hover:underline">Details ↗</a>
+                        </div>
                     </div>
                     <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
                         <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
