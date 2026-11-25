@@ -1,5 +1,5 @@
 import feedparser
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from .audiobookbay import search_audiobook
 from .torrent_service import add_torrent
 from .models import User
@@ -68,33 +68,77 @@ def fetch_goodreads_shelf(goodreads_user_id: str, shelf: str, max_pages: int = 1
     return all_books
 
 
-def download_best_match(title: str, user: User) -> Optional[Dict[str, Any]]:
-    results = search_audiobook(title)
-    
-    if not results:
-        logger.info(f"No results found for: {title}")
-        return None
-    
-    best_match = results[0]
-    torrent_url = best_match.get("MagnetUri") or best_match.get("Link")
-    
-    if not torrent_url:
-        logger.error(f"No torrent URL found for: {title}")
-        return None
-    
-    logger.info(f"Downloading best match for '{title}': {best_match.get('Title')}")
-    
-    try:
-        success = add_torrent(torrent_url, user)
-        if success:
-            return {
-                "title": best_match.get("Title"),
-                "size": best_match.get("Size"),
-                "url": torrent_url
-            }
-    except Exception as e:
-        logger.error(f"Failed to add torrent for '{title}': {e}")
-    
+def build_search_queries(title: str, author: str) -> List[str]:
+    """
+    Build a list of search queries to try in order.
+    AudiobookBay responds better to some combinations than others.
+    """
+    queries = []
+    clean_title = title.strip()
+    clean_author = author.strip()
+
+    # 1. Title + author (most specific)
+    if clean_author:
+        queries.append(f"{clean_title} {clean_author}")
+
+    # 2. Title only (full)
+    queries.append(clean_title)
+
+    # 3. Author only (catches series entries or variant titles)
+    if clean_author:
+        queries.append(clean_author)
+
+    # 4. First 4 words of title (strips subtitles like "Book 1", "A Novel", etc.)
+    title_words = clean_title.split()
+    if len(title_words) > 4:
+        short_title = " ".join(title_words[:4])
+        if short_title not in queries:
+            queries.append(short_title)
+
+    # 5. Short title + author
+    if clean_author and len(title_words) > 4:
+        short_with_author = f"{' '.join(title_words[:4])} {clean_author}"
+        if short_with_author not in queries:
+            queries.append(short_with_author)
+
+    # Deduplicate while preserving order
+    seen = set()
+    unique = []
+    for q in queries:
+        if q not in seen:
+            seen.add(q)
+            unique.append(q)
+    return unique
+
+
+def download_best_match(title: str, user: User, author: str = "") -> Optional[Dict[str, Any]]:
+    queries = build_search_queries(title, author)
+    logger.info(f"Trying {len(queries)} search queries for '{title}' by '{author}': {queries}")
+
+    for query in queries:
+        results = search_audiobook(query)
+        if results:
+            logger.info(f"Query '{query}' returned {len(results)} results")
+            best_match = results[0]
+            torrent_url = best_match.get("MagnetUri") or best_match.get("Link")
+            if not torrent_url:
+                logger.warning(f"No torrent URL in first result for query '{query}', skipping")
+                continue
+            logger.info(f"Downloading best match for '{title}' via query '{query}': {best_match.get('Title')}")
+            try:
+                success = add_torrent(torrent_url, user)
+                if success:
+                    return {
+                        "title": best_match.get("Title"),
+                        "size": best_match.get("Size"),
+                        "url": torrent_url
+                    }
+            except Exception as e:
+                logger.error(f"Failed to add torrent for '{title}' (query: '{query}'): {e}")
+        else:
+            logger.info(f"Query '{query}' returned no results")
+
+    logger.info(f"All {len(queries)} queries exhausted for '{title}' — no match found")
     return None
 
 
@@ -136,7 +180,7 @@ def poll_and_download_for_user(user_id: str, config: Dict[str, Any]) -> Dict[str
                 skipped += 1
                 continue
             
-            result = download_best_match(title, torrent_user)
+            result = download_best_match(title, torrent_user, author=author)
             
             if result:
                 add_processed_book(
