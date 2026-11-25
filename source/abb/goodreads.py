@@ -171,6 +171,7 @@ def get_llm_search_queries(title: str, author: str) -> List[str]:
         if not isinstance(queries, list):
             return []
         queries = [str(q).strip() for q in queries if str(q).strip()]
+        queries = queries[:MAX_LLM_QUERIES]  # hard cap
         logger.info(f"LLM suggested {len(queries)} alternative queries for '{title}': {queries}")
         return queries
     except Exception as e:
@@ -178,9 +179,13 @@ def get_llm_search_queries(title: str, author: str) -> List[str]:
         return []
 
 
-def _try_queries(queries: List[str], title: str, user: User) -> Optional[Dict[str, Any]]:
-    """Try a list of search queries in order; return on first successful torrent add."""
-    for query in queries:
+MAX_STANDARD_QUERIES = 10  # cap on heuristic queries
+MAX_LLM_QUERIES = 5        # cap on LLM-suggested queries
+
+
+def _try_queries(queries: List[str], title: str, user: User, limit: int = MAX_STANDARD_QUERIES) -> Optional[Dict[str, Any]]:
+    """Try a list of search queries in order (up to limit); return on first successful torrent add."""
+    for query in queries[:limit]:
         results = search_audiobook(query)
         if not results:
             logger.info(f"Query '{query}' returned no results")
@@ -217,7 +222,7 @@ def download_best_match(title: str, user: User, author: str = "") -> Optional[Di
     logger.info(f"Standard queries exhausted for '{title}' — asking LLM for alternatives")
     llm_queries = get_llm_search_queries(title, author)
     if llm_queries:
-        result = _try_queries(llm_queries, title, user)
+        result = _try_queries(llm_queries, title, user, limit=MAX_LLM_QUERIES)
         if result:
             return result
 

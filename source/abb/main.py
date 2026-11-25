@@ -23,8 +23,8 @@ from .beetsapi import autoimport
 from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
 from .db import select_candidate
 from .utils import custom_logger
-from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config
-from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, delete_processed_book, clear_all_processed_books, get_enabled_configs, migrate_legacy_data_for_user
+from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config, download_best_match
+from .goodreads_db import get_config as get_goodreads_config, save_config as save_goodreads_config, get_all_processed_books, get_processed_book, add_processed_book, delete_processed_book, clear_all_processed_books, get_enabled_configs, migrate_legacy_data_for_user
 from .config_db import get_all_effective_configs, get_config_schema, set_config, get_effective_config, CONFIG_SCHEMA
 
 logger = custom_logger(__name__)
@@ -420,6 +420,35 @@ def delete_processed_book_endpoint(book_id: str, user: User = Depends(authentica
         return {"status": "ok", "message": f"Book {book_id} removed from processed list"}
     else:
         raise HTTPException(status_code=404, detail=f"Book {book_id} not found")
+
+@app.post("/goodreads/books/{book_id}/retry")
+def retry_processed_book(book_id: str, user: User = Depends(authenticate)):
+    if not GOODREADS_ENABLED:
+        raise HTTPException(status_code=404, detail="Goodreads integration is not enabled")
+
+    book = get_processed_book(user.id, book_id)
+    if not book:
+        raise HTTPException(status_code=404, detail=f"Book {book_id} not found")
+
+    title = book.get("title", "")
+    author = book.get("author", "")
+    torrent_user = User(username=f"goodreads-{user.id}", role="admin", id=user.id)
+
+    result = download_best_match(title, torrent_user, author=author)
+
+    if result:
+        add_processed_book(
+            user_id=user.id,
+            book_id=book_id,
+            title=title,
+            author=author,
+            status="downloaded",
+            torrent_name=result.get("title", "")
+        )
+        return {"status": "downloaded", "torrent_name": result.get("title", ""), "message": f"Found and queued: {result.get('title')}"}
+    else:
+        return {"status": "no_results", "message": "No results found with any query strategy"}
+
 
 @app.delete("/goodreads/books")
 def clear_all_processed_books_endpoint(user: User = Depends(authenticate)):
