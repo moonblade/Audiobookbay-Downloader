@@ -69,6 +69,8 @@
     role: null,
     id: null,
     torrentClientType: null,
+    trackers: [],
+    selectedTracker: null,
 
 
     goodreadsEnabled: false,
@@ -161,6 +163,31 @@
         return Object.entries(this.configSchema).filter(([k, v]) => v.group === group);
     },
 
+    async fetchTrackers() {
+        try {
+            const response = await fetch('/trackers');
+            if (!response.ok) return;
+            const data = await response.json();
+            this.trackers = data.trackers || [];
+            const saved = localStorage.getItem('abb_selected_tracker');
+            if (saved && this.trackers.includes(saved)) {
+                this.selectedTracker = saved;
+            }
+        } catch (error) {
+            console.error('Error fetching trackers:', error);
+        }
+    },
+
+    selectTracker(tracker) {
+        if (this.selectedTracker === tracker) {
+            this.selectedTracker = null;
+            localStorage.removeItem('abb_selected_tracker');
+        } else {
+            this.selectedTracker = tracker;
+            localStorage.setItem('abb_selected_tracker', tracker);
+        }
+    },
+
     async search() {
         if (!this.query) return;
         this.loadingSearch = true;
@@ -176,7 +203,9 @@
         }, 5000);
 
         try {
-            let response = await fetch(`/search?query=${encodeURIComponent(this.query)}`);
+            let url = `/search?query=${encodeURIComponent(this.query)}`;
+            if (this.selectedTracker) url += `&tracker=${encodeURIComponent(this.selectedTracker)}`;
+            let response = await fetch(url);
             if (!response.ok) throw new Error('Failed to fetch results');
             let data = await response.json();
             this.results = data.results || [];
@@ -283,6 +312,7 @@
         this.setTitle();
         this.fetchTorrentClientType();
         this.fetchGoodreadsEnabled();
+        this.fetchTrackers();
     },
 
     async fetchRole() {
@@ -625,6 +655,20 @@
                 Search
             </button>
         </div>
+        <div x-show="trackers.length > 1" class="flex flex-wrap gap-2 mt-3">
+            <span class="text-xs text-gray-400 self-center">Filter by tracker:</span>
+            <template x-for="t in trackers" :key="t">
+                <button
+                    @click="selectTracker(t)"
+                    :class="selectedTracker === t
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-600 text-gray-300 hover:bg-gray-500'"
+                    class="text-xs px-3 py-1 rounded-full transition-colors">
+                    <span x-text="t"></span>
+                    <span x-show="selectedTracker === t" class="ml-1">✕</span>
+                </button>
+            </template>
+        </div>
         <p x-show="searchError" class="text-red-500 mt-2" x-text="searchError"></p>
         <p x-show="loadingSearch" class="text-gray-400 mt-2 italic" x-text="currentFunnyMessage"></p>
 
@@ -635,6 +679,9 @@
                     <div class="flex-grow w-3/4">
                         <h2 class="font-bold break-all" x-text="result.Title"></h2>
                         <p class="text-sm text-gray-400">Size: <span x-text="(result.Size / 1024 / 1024 / 1024).toFixed(2) + ' GB'"></span></p>
+                        <p x-show="trackers.length > 1 && result.Tracker" class="text-xs mt-1">
+                            <span class="bg-gray-600 text-gray-300 px-2 py-0.5 rounded-full" x-text="result.Tracker"></span>
+                        </p>
                     </div>
                     <button @click="add(result.MagnetUri || result.Link)" :disabled="loadingAdd[result.MagnetUri || result.Link]==true" class="bg-green-600 text-white px-3 py-1 rounded flex items-center gap-2 disabled:opacity-50">
                         <span x-show="loadingAdd[result.MagnetUri || result.Link]" class="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4"></span>
