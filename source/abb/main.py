@@ -18,9 +18,9 @@ from .torrent_service import (
     pause_torrent, resume_torrent, remove_label_from_torrent_with_hash, delete_old_torrents,
     pause_stale_torrents, set_category
 )
-from .audiobookbay import search_audiobook, get_jackett_indexers
+from .audiobookbay import search_audiobook, search_ebook, get_jackett_indexers
 from .beetsapi import autoimport
-from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED
+from .constants import BEETS_ERROR_LABEL, TRANSMISSION_URL, TRANSMISSION_USER, TRANSMISSION_PASS, DECYPHARR_URL, DECYPHARR_API_KEY, QBITTORRENT_URL, QBITTORRENT_USERNAME, QBITTORRENT_PASSWORD, TORRENT_CLIENT_TYPE, SESSION_KEY, TITLE, AUTH_MODE, GOODREADS_ENABLED, EBOOK_ENABLED, EBOOK_JACKETT_INDEXER, EBOOK_LABEL
 from .db import select_candidate
 from .utils import custom_logger
 from .goodreads import poll_and_download, poll_and_download_single_user, validate_goodreads_config, download_best_match
@@ -254,6 +254,34 @@ def search(
         logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
 
+def _try_add_ebook_companion(query: str, user: User) -> None:
+    """Background: search ebook indexer and silently add best match."""
+    ebook_enabled = get_effective_config("ebook_enabled")
+    if not ebook_enabled:
+        return
+    indexer = get_effective_config("ebook_jackett_indexer") or EBOOK_JACKETT_INDEXER
+    ebook_label = get_effective_config("ebook_label") or EBOOK_LABEL
+    try:
+        results = search_ebook(query, indexer)
+        if not results:
+            logger.info(f"Ebook companion: no results for '{query}' on '{indexer}'")
+            return
+        best = results[0]
+        torrent_url = best.get("MagnetUri") or best.get("Link")
+        if not torrent_url:
+            logger.warning(f"Ebook companion: no URL in first result for '{query}'")
+            return
+        logger.info(f"Ebook companion: adding '{best.get('Title')}' for query '{query}'")
+        ebook_user = User(username=user.username, role=user.role, id=user.id)
+        success = add_torrent(torrent_url, ebook_user, label=ebook_label)
+        if success:
+            logger.info(f"Ebook companion added: {best.get('Title')}")
+        else:
+            logger.warning(f"Ebook companion: add_torrent returned False for '{query}'")
+    except Exception as e:
+        logger.error(f"Ebook companion failed for '{query}': {e}")
+
+
 @app.post("/add")
 def add(
     torrent: TorrentRequest,
@@ -262,6 +290,14 @@ def add(
     try:
         success = add_torrent(torrent.url, user)
         if success:
+            # Fire-and-forget ebook companion search using the audiobook query
+            if torrent.query and get_effective_config("ebook_enabled"):
+                import threading
+                threading.Thread(
+                    target=_try_add_ebook_companion,
+                    args=(torrent.query, user),
+                    daemon=True
+                ).start()
             return {"status": "ok", "message": "Torrent added successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to add torrent")

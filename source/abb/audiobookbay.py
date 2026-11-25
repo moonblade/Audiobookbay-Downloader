@@ -46,6 +46,30 @@ def get_jackett_indexers(api_url: Optional[str] = None, api_key: Optional[str] =
         return []
 
 
+def search_ebook(query: str, indexer: str, api_url: Optional[str] = None, api_key: Optional[str] = None) -> List[dict]:
+    """Search a specific Jackett ebook indexer (e.g. ebookbay) for an ebook."""
+    base = (api_url or JACKETT_API_URL)
+    key = api_key or JACKETT_API_KEY
+    # Build indexer-specific URL: replace the indexer slug in the URL
+    indexer_url = str(base).rsplit('/api/v2.0/indexers/', 1)[0] + f'/api/v2.0/indexers/{indexer}/results'
+    params = {
+        "apikey": key,
+        "Query": query,
+    }
+    logger.info(f"Searching ebook indexer '{indexer}' for: {query}")
+    try:
+        response = requests.get(indexer_url, params=params)
+        if response.status_code != 200:
+            logger.error(f"Ebook search error from Jackett: {response.text}")
+            return []
+        results = response.json().get("Results", [])
+        logger.info(f"Ebook search: {len(results)} results for '{query}' on '{indexer}'")
+        return results
+    except Exception as e:
+        logger.error(f"Ebook search failed: {e}")
+        return []
+
+
 def search_audiobook(query, api_url: Optional[str] = None, api_key: Optional[str] = None, trackers: Optional[List[str]] = None):
     url = api_url or JACKETT_API_URL
     key = api_key or JACKETT_API_KEY

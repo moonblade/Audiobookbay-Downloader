@@ -234,7 +234,7 @@
 
         
         try {
-            let requestBody = { url };
+            let requestBody = { url, query: this.query || null };
 
             let response = await fetch('/add', {
                 method: 'POST',

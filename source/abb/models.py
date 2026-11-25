@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Optional
 from pydantic import BaseModel
 
 class TorrentClientType(str, Enum):
@@ -13,3 +14,4 @@ class User(BaseModel):
 
 class TorrentRequest(BaseModel):
     url: str
+    query: Optional[str] = None  # original search query, used for ebook companion search
