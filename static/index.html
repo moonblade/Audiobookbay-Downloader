@@ -271,7 +271,9 @@
                 return response.json();
             })
             .then(data => {
-                this.torrentStatus = data;
+                if (Array.isArray(data) && data.length > 0) {
+                    this.torrentStatus = data;
+                }
             })
             .catch(error => {
                 console.error(error);
